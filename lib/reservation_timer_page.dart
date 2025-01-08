@@ -1,9 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'alarm_settings_dialog.dart';
-import 'reservation_card.dart'; // 추가
-
+import 'reservation_card.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -14,12 +17,14 @@ class ReservationTimerPage extends StatefulWidget {
 
 class _ReservationTimerPageState extends State<ReservationTimerPage> {
   Timer? _timer;
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   final Map<String, String> _bookingUrls = {
     '매헌시민의숲 테니스장': 'https://www.spo1.or.kr/front/main/main.do',
     '내곡 테니스장': 'https://www.spo1.or.kr/front/main/main.do',
   };
   Map<String, DateTime> _nextReservationTimes = {};
-  final Map<String, Map<String, bool>> _alarmSettings = {
+  Map<String, Map<String, bool>> _alarmSettings = {
     '매헌시민의숲 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
     '내곡 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
   };
@@ -27,12 +32,64 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   @override
   void initState() {
     super.initState();
+    tz.initializeTimeZones();
+    _initializeNotifications();
+    _loadAlarmSettings();
     _calculateNextReservationTimes();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _calculateNextReservationTimes();
       });
     });
+  }
+
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _scheduleNotification(String location, DateTime time) async {
+    const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'your_channel_id',
+      'your_channel_name',
+      channelDescription: 'your_channel_description',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await _flutterLocalNotificationsPlugin.zonedSchedule(
+      0,
+      '예약 알림',
+      '$location 예약 시간이 다가옵니다.',
+      tz.TZDateTime.from(time, tz.local),
+      platformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  Future<void> _loadAlarmSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _alarmSettings.forEach((key, value) {
+        _alarmSettings[key] = {
+          'oneDayBefore': prefs.getBool('${key}_oneDayBefore') ?? false,
+          'oneHourBefore': prefs.getBool('${key}_oneHourBefore') ?? false,
+        };
+      });
+    });
+  }
+
+  Future<void> _saveAlarmSettings(String location) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('${location}_oneDayBefore', _alarmSettings[location]!['oneDayBefore']!);
+    await prefs.setBool('${location}_oneHourBefore', _alarmSettings[location]!['oneHourBefore']!);
   }
 
   void _calculateNextReservationTimes() {
@@ -100,6 +157,16 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                       'oneDayBefore': oneDayBefore,
                       'oneHourBefore': oneHourBefore,
                     };
+                    _saveAlarmSettings(location);
+
+                    if (oneDayBefore) {
+                      _scheduleNotification(
+                          location, reservationTime.subtract(Duration(days: 1)));
+                    }
+                    if (oneHourBefore) {
+                      _scheduleNotification(
+                          location, reservationTime.subtract(Duration(hours: 1)));
+                    }
                   });
                 },
                 onLaunchURL: _launchURL,
