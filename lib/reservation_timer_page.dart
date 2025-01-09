@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:permission_handler/permission_handler.dart';
 import 'alarm_settings_dialog.dart';
 import 'reservation_card.dart';
 
@@ -20,8 +21,8 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
   final Map<String, String> _bookingUrls = {
-    '매헌시민의숲 테니스장': 'https://www.spo1.or.kr/front/main/main.do',
-    '내곡 테니스장': 'https://www.spo1.or.kr/front/main/main.do',
+    '매헌시민의숲 테니스장': 'https://m.booking.naver.com/booking/10/bizes/210031/',
+    '내곡 테니스장': 'https://m.booking.naver.com/booking/10/bizes/217811/',
   };
   Map<String, DateTime> _nextReservationTimes = {};
   Map<String, Map<String, bool>> _alarmSettings = {
@@ -32,6 +33,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   @override
   void initState() {
     super.initState();
+    _requestNotificationPermission();
     tz.initializeTimeZones();
     _initializeNotifications();
     _loadAlarmSettings();
@@ -43,6 +45,13 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     });
   }
 
+  Future<void> _requestNotificationPermission() async {
+    final status = await Permission.notification.request();
+    if (status.isDenied) {
+      debugPrint('알림 권한이 거부되었습니다.');
+    }
+  }
+
   Future<void> _initializeNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -51,7 +60,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  Future<void> _scheduleNotification(String location, DateTime time) async {
+  Future<void> _scheduleNotification(String location, String message) async {
     const androidPlatformChannelSpecifics = AndroidNotificationDetails(
       'your_channel_id',
       'your_channel_name',
@@ -62,15 +71,11 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     const platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
+    await _flutterLocalNotificationsPlugin.show(
       0,
       '예약 알림',
-      '$location 예약 시간이 다가옵니다.',
-      tz.TZDateTime.from(time, tz.local),
+      message,
       platformChannelSpecifics,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -128,14 +133,14 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     final now = DateTime.now();
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text(
-          '테니스장 예약 타이머',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      // navigationBar: const CupertinoNavigationBar(
+      //   middle: Text(
+      //     '테니스장 예약 타이머',
+      //     style: TextStyle(
+      //       fontWeight: FontWeight.w600,
+      //     ),
+      //   ),
+      // ),
       child: SafeArea(
         child: CupertinoScrollbar(
           child: ListView.builder(
@@ -161,11 +166,11 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
                     if (oneDayBefore) {
                       _scheduleNotification(
-                          location, reservationTime.subtract(Duration(days: 1)));
+                          location, '$location 예약 1일 전 알림입니다.');
                     }
                     if (oneHourBefore) {
                       _scheduleNotification(
-                          location, reservationTime.subtract(Duration(hours: 1)));
+                          location, '$location 예약 1시간 전 알림입니다.');
                     }
                   });
                 },
