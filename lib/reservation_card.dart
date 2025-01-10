@@ -213,7 +213,7 @@ class ReservationCard extends StatelessWidget {
                   ),
                   child: const Center(
                     child: Text(
-                      '네이버 예약하기',
+                      '예약하기',
                       style: TextStyle(
                         color: CupertinoColors.white,
                         fontSize: 16,

@@ -24,11 +24,19 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   final Map<String, String> _bookingUrls = {
     '매헌시민의숲 테니스장': 'https://m.booking.naver.com/booking/10/bizes/210031/',
     '내곡 테니스장': 'https://m.booking.naver.com/booking/10/bizes/217811/',
+    '귀뚜라미 테니스장': 'https://booking.kitutennis.co.kr/reservation_01.asp',
+    '정현 중보들 실내테니스장': 'https://share.gg.go.kr/facilityListO/view?instiCode=1010017&facilityId=F0001',
+    '경기도 인재개발원 테니스장': 'https://share.gg.go.kr/facilityListO/view?instiCode=6411268&facilityId=F0041',
+    '준 실내 테니스장': 'https://m.place.naver.com/place/1937531034/ticket',
   };
   Map<String, DateTime> _nextReservationTimes = {};
   Map<String, Map<String, bool>> _alarmSettings = {
     '매헌시민의숲 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
     '내곡 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
+    '귀뚜라미 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
+    '정현 중보들 실내테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
+    '경기도 인재개발원 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
+    '준 실내 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
   };
 
   BannerAd? _bannerAd;
@@ -47,13 +55,24 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     _initializeNotifications();
     _loadAlarmSettings();
     _calculateNextReservationTimes();
+    _nextReservationTimes = {
+      '매헌시민의숲 테니스장': _getNextReservationDate(DateTime.now(), 1),
+      '내곡 테니스장': _getNextReservationDate(DateTime.now(), 10),
+      '귀뚜라미 테니스장': _getNextReservationDate(DateTime.now(), 15),
+      '정현 중보들 실내테니스장': _getNextReservationDate(DateTime.now(), 21, hour:10),
+      '경기도 인재개발원 테니스장': _getNextReservationDate(DateTime.now(), 22, hour:10),
+      '준 실내 테니스장': _getNextReservationDate(DateTime.now(), 25, hour: 0),
+    };
+    _nextReservationTimes = Map.fromEntries(
+      _nextReservationTimes.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value)),
+    );
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _calculateNextReservationTimes();
       });
     });
     _loadBannerAd();
-    _loadInterstitialAd();
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -71,23 +90,58 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  Future<void> _scheduleNotification(String location, String message) async {
-    const androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'your_channel_id',
-      'your_channel_name',
-      channelDescription: 'your_channel_description',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
+  Future<void> _scheduleNotification(String location, DateTime reservationTime) async {
+    final now = DateTime.now();
 
-    await _flutterLocalNotificationsPlugin.show(
-      0,
-      '예약 알림',
-      message,
-      platformChannelSpecifics,
-    );
+    if (_alarmSettings[location]?['oneDayBefore'] == true) {
+      final oneDayBefore = reservationTime.subtract(Duration(days: 1));
+      if (oneDayBefore.isAfter(now)) {
+        await _flutterLocalNotificationsPlugin.zonedSchedule(
+          0,
+          '예약 알림',
+          '$location 예약 1일 전 알림입니다.',
+          tz.TZDateTime.from(oneDayBefore, tz.local),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'your_channel_id',
+              'your_channel_name',
+              channelDescription: 'your_channel_description',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+      }
+    }
+
+    if (_alarmSettings[location]?['oneHourBefore'] == true) {
+      final oneHourBefore = reservationTime.subtract(Duration(hours: 1));
+      if (oneHourBefore.isAfter(now)) {
+        await _flutterLocalNotificationsPlugin.zonedSchedule(
+          1,
+          '예약 알림',
+          '$location 예약 1시간 전 알림입니다.',
+          tz.TZDateTime.from(oneHourBefore, tz.local),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'your_channel_id',
+              'your_channel_name',
+              channelDescription: 'your_channel_description',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+      }
+    }
   }
 
   Future<void> _loadAlarmSettings() async {
@@ -114,6 +168,10 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     _nextReservationTimes = {
       '매헌시민의숲 테니스장': _getNextReservationDate(now, 1),
       '내곡 테니스장': _getNextReservationDate(now, 10),
+      '귀뚜라미 테니스장': _getNextReservationDate(now, 15),
+      '정현 중보들 실내테니스장': _getNextReservationDate(now, 21, hour:10),
+      '경기도 인재개발원 테니스장': _getNextReservationDate(now, 22, hour:10),
+      '준 실내 테니스장': _getNextReservationDate(now, 25, hour: 0),
     };
 
     _nextReservationTimes = Map.fromEntries(
@@ -122,10 +180,10 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     );
   }
 
-  DateTime _getNextReservationDate(DateTime now, int day) {
-    var reservationDate = DateTime(now.year, now.month, day, 9, 0);
+  DateTime _getNextReservationDate(DateTime now, int day, {int hour = 9}) {
+    var reservationDate = DateTime(now.year, now.month, day, hour, 0);
     if (now.isAfter(reservationDate)) {
-      reservationDate = DateTime(now.year, now.month + 1, day, 9, 0);
+      reservationDate = DateTime(now.year, now.month + 1, day, hour, 0);
     }
     return reservationDate;
   }
@@ -188,6 +246,18 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     }
   }
 
+  void _onAlarmSettingsChanged(bool oneDayBefore, bool oneHourBefore) {
+    final location = _nextReservationTimes.keys.firstWhere((key) => _nextReservationTimes[key] != null);
+    setState(() {
+      _alarmSettings[location] = {
+        'oneDayBefore': oneDayBefore,
+        'oneHourBefore': oneHourBefore,
+      };
+      _saveAlarmSettings(location);
+      _scheduleNotification(location, _nextReservationTimes[location]!);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -211,24 +281,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                       remainingTime: remainingTime,
                       bookingUrl: _bookingUrls[location]!,
                       alarmSettings: _alarmSettings,
-                      onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) {
-                        setState(() {
-                          _alarmSettings[location] = {
-                            'oneDayBefore': oneDayBefore,
-                            'oneHourBefore': oneHourBefore,
-                          };
-                          _saveAlarmSettings(location);
-
-                          if (oneDayBefore) {
-                            _scheduleNotification(
-                                location, '$location 예약 1일 전 알림입니다.');
-                          }
-                          if (oneHourBefore) {
-                            _scheduleNotification(
-                                location, '$location 예약 1시간 전 알림입니다.');
-                          }
-                        });
-                      },
+                      onAlarmSettingsChanged: _onAlarmSettingsChanged,
                       onLaunchURL: _launchURL,
                     );
                   },
