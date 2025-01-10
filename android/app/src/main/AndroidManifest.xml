@@ -3,6 +3,9 @@
         android:label="코트알람"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-5291862857093530~9956033060"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

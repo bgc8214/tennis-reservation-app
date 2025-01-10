@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:permission_handler/permission_handler.dart';
 import 'alarm_settings_dialog.dart';
 import 'reservation_card.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -30,6 +31,14 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     '내곡 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
   };
 
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
+
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialAdReady = false;
+
+  bool _hasShownAd = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +52,8 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
         _calculateNextReservationTimes();
       });
     });
+    _loadBannerAd();
+    _loadInterstitialAd();
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -128,56 +139,109 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     }
   }
 
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-3940256099942544/9214589741',
+      request: AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          setState(() {
+            _isBannerAdReady = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          print('BannerAd failed to load: $error');
+          _isBannerAdReady = false;
+          ad.dispose();
+        },
+      ),
+    )..load();
+  }
+
+  void _loadInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: 'ca-app-pub-3940256099942544/1033173712',
+      request: AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          _isInterstitialAdReady = true;
+          if (!_hasShownAd) {
+            _showInterstitialAd();
+            _hasShownAd = true;
+          }
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('InterstitialAd failed to load: $error');
+          _isInterstitialAdReady = false;
+        },
+      ),
+    );
+  }
+
+  void _showInterstitialAd() {
+    if (_isInterstitialAdReady && _interstitialAd != null) {
+      _interstitialAd!.show();
+      _interstitialAd = null;
+      _loadInterstitialAd(); // Reload the ad for future use
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
 
     return CupertinoPageScaffold(
-      // navigationBar: const CupertinoNavigationBar(
-      //   middle: Text(
-      //     '테니스장 예약 타이머',
-      //     style: TextStyle(
-      //       fontWeight: FontWeight.w600,
-      //     ),
-      //   ),
-      // ),
       child: SafeArea(
-        child: CupertinoScrollbar(
-          child: ListView.builder(
-            itemCount: _nextReservationTimes.length,
-            itemBuilder: (context, index) {
-              final location = _nextReservationTimes.keys.elementAt(index);
-              final reservationTime = _nextReservationTimes[location]!;
-              final remainingTime = reservationTime.difference(now);
+        child: Column(
+          children: [
+            Expanded(
+              child: CupertinoScrollbar(
+                child: ListView.builder(
+                  itemCount: _nextReservationTimes.length,
+                  itemBuilder: (context, index) {
+                    final location = _nextReservationTimes.keys.elementAt(index);
+                    final reservationTime = _nextReservationTimes[location]!;
+                    final remainingTime = reservationTime.difference(now);
 
-              return ReservationCard(
-                location: location,
-                reservationTime: reservationTime,
-                remainingTime: remainingTime,
-                bookingUrl: _bookingUrls[location]!,
-                alarmSettings: _alarmSettings,
-                onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) {
-                  setState(() {
-                    _alarmSettings[location] = {
-                      'oneDayBefore': oneDayBefore,
-                      'oneHourBefore': oneHourBefore,
-                    };
-                    _saveAlarmSettings(location);
+                    return ReservationCard(
+                      location: location,
+                      reservationTime: reservationTime,
+                      remainingTime: remainingTime,
+                      bookingUrl: _bookingUrls[location]!,
+                      alarmSettings: _alarmSettings,
+                      onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) {
+                        setState(() {
+                          _alarmSettings[location] = {
+                            'oneDayBefore': oneDayBefore,
+                            'oneHourBefore': oneHourBefore,
+                          };
+                          _saveAlarmSettings(location);
 
-                    if (oneDayBefore) {
-                      _scheduleNotification(
-                          location, '$location 예약 1일 전 알림입니다.');
-                    }
-                    if (oneHourBefore) {
-                      _scheduleNotification(
-                          location, '$location 예약 1시간 전 알림입니다.');
-                    }
-                  });
-                },
-                onLaunchURL: _launchURL,
-              );
-            },
-          ),
+                          if (oneDayBefore) {
+                            _scheduleNotification(
+                                location, '$location 예약 1일 전 알림입니다.');
+                          }
+                          if (oneHourBefore) {
+                            _scheduleNotification(
+                                location, '$location 예약 1시간 전 알림입니다.');
+                          }
+                        });
+                      },
+                      onLaunchURL: _launchURL,
+                    );
+                  },
+                ),
+              ),
+            ),
+            if (_isBannerAdReady)
+              Container(
+                height: _bannerAd!.size.height.toDouble(),
+                width: _bannerAd!.size.width.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+          ],
         ),
       ),
     );
@@ -186,6 +250,8 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _bannerAd?.dispose();
+    _interstitialAd?.dispose();
     super.dispose();
   }
 }

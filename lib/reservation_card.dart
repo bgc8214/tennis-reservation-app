@@ -223,7 +223,7 @@ class ReservationCard extends StatelessWidget {
                   ),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
