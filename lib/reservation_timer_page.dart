@@ -9,6 +9,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'alarm_settings_dialog.dart';
 import 'reservation_card.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -47,9 +49,12 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   bool _hasShownAd = false;
 
+  final TextEditingController _suggestionController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    _initializeFirebase();
     _requestNotificationPermission();
     tz.initializeTimeZones();
     _initializeNotifications();
@@ -73,6 +78,10 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
       });
     });
     _loadBannerAd();
+  }
+
+  Future<void> _initializeFirebase() async {
+    await Firebase.initializeApp();
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -258,44 +267,149 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     });
   }
 
+  void _submitSuggestion(String suggestion) async {
+    try {
+      await FirebaseFirestore.instance.collection('suggestions').add({
+        'suggestion': suggestion,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      debugPrint('Suggestion submitted successfully');
+    } catch (e) {
+      debugPrint('Failed to submit suggestion: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
 
     return CupertinoPageScaffold(
-      child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: CupertinoScrollbar(
-                child: ListView.builder(
-                  itemCount: _nextReservationTimes.length,
-                  itemBuilder: (context, index) {
-                    final location = _nextReservationTimes.keys.elementAt(index);
-                    final reservationTime = _nextReservationTimes[location]!;
-                    final remainingTime = reservationTime.difference(now);
+      child: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: CupertinoScrollbar(
+                    child: ListView.builder(
+                      itemCount: _nextReservationTimes.length,
+                      itemBuilder: (context, index) {
+                        final location = _nextReservationTimes.keys.elementAt(index);
+                        final reservationTime = _nextReservationTimes[location]!;
+                        final remainingTime = reservationTime.difference(now);
 
-                    return ReservationCard(
-                      location: location,
-                      reservationTime: reservationTime,
-                      remainingTime: remainingTime,
-                      bookingUrl: _bookingUrls[location]!,
-                      alarmSettings: _alarmSettings,
-                      onAlarmSettingsChanged: _onAlarmSettingsChanged,
-                      onLaunchURL: _launchURL,
+                        return ReservationCard(
+                          location: location,
+                          reservationTime: reservationTime,
+                          remainingTime: remainingTime,
+                          bookingUrl: _bookingUrls[location]!,
+                          alarmSettings: _alarmSettings,
+                          onAlarmSettingsChanged: _onAlarmSettingsChanged,
+                          onLaunchURL: _launchURL,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                if (_isBannerAdReady)
+                  Container(
+                    height: _bannerAd!.size.height.toDouble(),
+                    width: _bannerAd!.size.width.toDouble(),
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 50,
+            right: 16,
+            child: GestureDetector(
+              onTap: () {
+                showCupertinoDialog(
+                  context: context,
+                  builder: (context) {
+                    return CupertinoAlertDialog(
+                      title: Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text('테니스장 추가 건의',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      content: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Container(
+                          width: double.infinity,
+                          height: 120,
+                          child: CupertinoTextField(
+                            controller: _suggestionController,
+                            placeholder: '추가를 원하는 테니스장이나 건의사항을 적어주세요',
+                            maxLines: null,
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.systemGrey6,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      actions: [
+                        CupertinoDialogAction(
+                          child: Text('취소',
+                            style: TextStyle(
+                              color: CupertinoColors.destructiveRed,
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        CupertinoDialogAction(
+                          child: Text('보내기',
+                            style: TextStyle(
+                              color: CupertinoColors.activeBlue,
+                            ),
+                          ),
+                          onPressed: () {
+                            final suggestion = _suggestionController.text;
+                            _submitSuggestion(suggestion);
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
                     );
                   },
+                );
+              },
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemGrey4,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: CupertinoColors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(7.0),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/customer.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
             ),
-            if (_isBannerAdReady)
-              Container(
-                height: _bannerAd!.size.height.toDouble(),
-                width: _bannerAd!.size.width.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
