@@ -129,25 +129,34 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   Future<void> _loadAlarmSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
     setState(() {
-      _alarmSettings.forEach((key, value) {
-        _alarmSettings[key] = {
-          'oneDayBefore': prefs.getBool('${key}_oneDayBefore') ?? false,
-          'oneHourBefore': prefs.getBool('${key}_oneHourBefore') ?? false,
-        };
-      });
+      _alarmSettings = {
+        for (var location in _nextReservationTimes.keys)
+          location: {
+            'oneDayBefore': keys.contains('${location}_oneDayBefore') ? prefs.getBool('${location}_oneDayBefore') ?? false : false,
+            'oneHourBefore': keys.contains('${location}_oneHourBefore') ? prefs.getBool('${location}_oneHourBefore') ?? false : false,
+          }
+      };
     });
   }
 
   Future<void> _saveAlarmSettings(String location) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('${location}_oneDayBefore', _alarmSettings[location]!['oneDayBefore']!);
-    await prefs.setBool('${location}_oneHourBefore', _alarmSettings[location]!['oneHourBefore']!);
+    await prefs.setBool('${location}_oneDayBefore', _alarmSettings[location]?['oneDayBefore'] ?? false);
+    await prefs.setBool('${location}_oneHourBefore', _alarmSettings[location]?['oneHourBefore'] ?? false);
   }
 
   void _calculateNextReservationTimes() {
-    // This function will now rely on Firebase data only
-    // No hardcoded data is needed here
+    final now = DateTime.now();
+    _nextReservationTimes = {
+      for (var location in _nextReservationTimes.keys)
+        location: _getNextReservationDate(
+          now,
+          _nextReservationTimes[location]?.day ?? 1,
+          hour: _nextReservationTimes[location]?.hour ?? 9,
+        )
+    };
   }
 
   DateTime _getNextReservationDate(DateTime now, int day, {int hour = 9}) {
@@ -169,7 +178,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   void _loadBannerAd() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/9214589741',
+      adUnitId: 'ca-app-pub-5291862857093530/5643847992',
       request: AdRequest(),
       size: AdSize.banner,
       listener: BannerAdListener(
@@ -189,7 +198,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   void _loadInterstitialAd() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712',
+      adUnitId: 'ca-app-pub-5291862857093530/3944179124',
       request: AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (InterstitialAd ad) {
@@ -216,8 +225,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     }
   }
 
-  void _onAlarmSettingsChanged(bool oneDayBefore, bool oneHourBefore) {
-    final location = _nextReservationTimes.keys.firstWhere((key) => _nextReservationTimes[key] != null);
+  void _onAlarmSettingsChanged(String location, bool oneDayBefore, bool oneHourBefore) {
     setState(() {
       _alarmSettings[location] = {
         'oneDayBefore': oneDayBefore,
@@ -264,6 +272,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
               court['name']: {'oneDayBefore': false, 'oneHourBefore': false}
           };
         });
+        _loadAlarmSettings();
       }
     } catch (e) {
       debugPrint('Failed to fetch tennis courts: $e');
@@ -308,7 +317,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                                 remainingTime: remainingTime,
                                 bookingUrl: bookingUrl,
                                 alarmSettings: _alarmSettings,
-                                onAlarmSettingsChanged: _onAlarmSettingsChanged,
+                                onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) => _onAlarmSettingsChanged(location, oneDayBefore, oneHourBefore),
                                 onLaunchURL: _launchURL,
                               );
                             },
