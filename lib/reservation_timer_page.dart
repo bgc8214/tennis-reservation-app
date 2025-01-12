@@ -23,23 +23,9 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   Timer? _timer;
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final Map<String, String> _bookingUrls = {
-    '매헌시민의숲 테니스장': 'https://m.booking.naver.com/booking/10/bizes/210031/',
-    '내곡 테니스장': 'https://m.booking.naver.com/booking/10/bizes/217811/',
-    '귀뚜라미 테니스장': 'https://booking.kitutennis.co.kr/reservation_01.asp',
-    '정현 중보들 실내테니스장': 'https://share.gg.go.kr/facilityListO/view?instiCode=1010017&facilityId=F0001',
-    '경기도 인재개발원 테니스장': 'https://share.gg.go.kr/facilityListO/view?instiCode=6411268&facilityId=F0041',
-    '준 실내 테니스장': 'https://m.place.naver.com/place/1937531034/ticket',
-  };
+  Map<String, String> _bookingUrls = {};
   Map<String, DateTime> _nextReservationTimes = {};
-  Map<String, Map<String, bool>> _alarmSettings = {
-    '매헌시민의숲 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
-    '내곡 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
-    '귀뚜라미 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
-    '정현 중보들 실내테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
-    '경기도 인재개발원 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
-    '준 실내 테니스장': {'oneDayBefore': false, 'oneHourBefore': false},
-  };
+  Map<String, Map<String, bool>> _alarmSettings = {};
 
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
@@ -55,23 +41,11 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   void initState() {
     super.initState();
     _initializeFirebase();
+    _fetchTennisCourts();
     _requestNotificationPermission();
     tz.initializeTimeZones();
     _initializeNotifications();
     _loadAlarmSettings();
-    _calculateNextReservationTimes();
-    _nextReservationTimes = {
-      '매헌시민의숲 테니스장': _getNextReservationDate(DateTime.now(), 1),
-      '내곡 테니스장': _getNextReservationDate(DateTime.now(), 10),
-      '귀뚜라미 테니스장': _getNextReservationDate(DateTime.now(), 15),
-      '정현 중보들 실내테니스장': _getNextReservationDate(DateTime.now(), 21, hour:10),
-      '경기도 인재개발원 테니스장': _getNextReservationDate(DateTime.now(), 22, hour:10),
-      '준 실내 테니스장': _getNextReservationDate(DateTime.now(), 25, hour: 0),
-    };
-    _nextReservationTimes = Map.fromEntries(
-      _nextReservationTimes.entries.toList()
-        ..sort((a, b) => a.value.compareTo(b.value)),
-    );
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _calculateNextReservationTimes();
@@ -172,21 +146,8 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   }
 
   void _calculateNextReservationTimes() {
-    final now = DateTime.now();
-
-    _nextReservationTimes = {
-      '매헌시민의숲 테니스장': _getNextReservationDate(now, 1),
-      '내곡 테니스장': _getNextReservationDate(now, 10),
-      '귀뚜라미 테니스장': _getNextReservationDate(now, 15),
-      '정현 중보들 실내테니스장': _getNextReservationDate(now, 21, hour:10),
-      '경기도 인재개발원 테니스장': _getNextReservationDate(now, 22, hour:10),
-      '준 실내 테니스장': _getNextReservationDate(now, 25, hour: 0),
-    };
-
-    _nextReservationTimes = Map.fromEntries(
-      _nextReservationTimes.entries.toList()
-        ..sort((a, b) => a.value.compareTo(b.value)),
-    );
+    // This function will now rely on Firebase data only
+    // No hardcoded data is needed here
   }
 
   DateTime _getNextReservationDate(DateTime now, int day, {int hour = 9}) {
@@ -279,6 +240,36 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
     }
   }
 
+  Future<void> _fetchTennisCourts() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('tennis_courts').get();
+      final courts = snapshot.docs.map((doc) => doc.data()).toList();
+      if (courts.isNotEmpty) {
+        setState(() {
+          _bookingUrls = {for (var court in courts) court['name']: court['bookingUrl'] ?? ''};
+          _nextReservationTimes = {
+            for (var court in courts)
+              court['name']: _getNextReservationDate(
+                DateTime.now(),
+                court['day'] ?? 1,
+                hour: court['hour'] ?? 9,
+              )
+          };
+          _nextReservationTimes = Map.fromEntries(
+            _nextReservationTimes.entries.toList()
+              ..sort((a, b) => a.value.compareTo(b.value)),
+          );
+          _alarmSettings = {
+            for (var court in courts)
+              court['name']: {'oneDayBefore': false, 'oneHourBefore': false}
+          };
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch tennis courts: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -291,23 +282,40 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
               children: [
                 Expanded(
                   child: CupertinoScrollbar(
-                    child: ListView.builder(
-                      itemCount: _nextReservationTimes.length,
-                      itemBuilder: (context, index) {
-                        final location = _nextReservationTimes.keys.elementAt(index);
-                        final reservationTime = _nextReservationTimes[location]!;
-                        final remainingTime = reservationTime.difference(now);
+                    child: CustomScrollView(
+                      slivers: <Widget>[
+                        CupertinoSliverRefreshControl(
+                          onRefresh: () async {
+                            await _fetchTennisCourts();
+                          },
+                        ),
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (BuildContext context, int index) {
+                              final location = _nextReservationTimes.keys.elementAt(index);
+                              final reservationTime = _nextReservationTimes[location];
+                              final bookingUrl = _bookingUrls[location];
 
-                        return ReservationCard(
-                          location: location,
-                          reservationTime: reservationTime,
-                          remainingTime: remainingTime,
-                          bookingUrl: _bookingUrls[location]!,
-                          alarmSettings: _alarmSettings,
-                          onAlarmSettingsChanged: _onAlarmSettingsChanged,
-                          onLaunchURL: _launchURL,
-                        );
-                      },
+                              if (reservationTime == null || bookingUrl == null) {
+                                return SizedBox.shrink(); // Return an empty widget if data is missing
+                              }
+
+                              final remainingTime = reservationTime.difference(now);
+
+                              return ReservationCard(
+                                location: location,
+                                reservationTime: reservationTime,
+                                remainingTime: remainingTime,
+                                bookingUrl: bookingUrl,
+                                alarmSettings: _alarmSettings,
+                                onAlarmSettingsChanged: _onAlarmSettingsChanged,
+                                onLaunchURL: _launchURL,
+                              );
+                            },
+                            childCount: _nextReservationTimes.length,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
