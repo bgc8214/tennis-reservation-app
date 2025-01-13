@@ -8,8 +8,14 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keyStoreProperties = new Properties()
+def keyStoreFile = rootProject.file("key.properties")
+if (keyStoreFile.exists()) {
+    keyStoreProperties.load(new FileInputStream(keyStoreFile))
+}
+
 android {
-    namespace = "com.example.tennis_app"
+    namespace = "com.boss.tennis_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -24,7 +30,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.tennis_app"
+        applicationId = "com.boss.tennis_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
