@@ -11,6 +11,7 @@ import 'reservation_card.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -177,8 +178,12 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   }
 
   void _loadBannerAd() {
+    final bannerAdUnitId = kReleaseMode
+        ? 'ca-app-pub-5291862857093530/5643847992' // Release mode ID
+        : 'ca-app-pub-3940256099942544/9214589741'; // Debug mode ID
+
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-5291862857093530/5643847992',
+      adUnitId: bannerAdUnitId,
       request: AdRequest(),
       size: AdSize.banner,
       listener: BannerAdListener(

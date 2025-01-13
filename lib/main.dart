@@ -2,17 +2,22 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'reservation_timer_page.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await MobileAds.instance.initialize();
 
+  final interstitialAdUnitId = kReleaseMode
+      ? 'ca-app-pub-5291862857093530/3944179124' // Release mode ID
+      : 'ca-app-pub-3940256099942544/1033173712'; // Debug mode ID
+
   InterstitialAd? interstitialAd;
   bool isAdLoaded = false;
 
   InterstitialAd.load(
-    adUnitId: 'ca-app-pub-5291862857093530/3944179124',
+    adUnitId: interstitialAdUnitId,
     request: AdRequest(),
     adLoadCallback: InterstitialAdLoadCallback(
       onAdLoaded: (InterstitialAd ad) {
