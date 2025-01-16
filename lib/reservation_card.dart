@@ -28,7 +28,7 @@ class ReservationCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-    return '${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}:00';
+    return '${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   Color _getColorForRemainingDays(int days) {
@@ -47,6 +47,10 @@ class ReservationCard extends StatelessWidget {
     final reservationDay = DateTime(
         reservationDate.year, reservationDate.month, reservationDate.day);
     return reservationDay.difference(today).inDays;
+  }
+
+  String _formatOpenTime(DateTime date) {
+    return '매달 ${date.day}일 ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분 오픈';
   }
 
   @override
@@ -176,10 +180,10 @@ class ReservationCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '매달 ${reservationTime.day}일 ${reservationTime.hour.toString().padLeft(2, '0')}:00 예약 오픈',
+                    _formatOpenTime(reservationTime),
                     style: TextStyle(
                       color: CupertinoColors.systemGrey,
-                      fontSize: 15,
+                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 8),

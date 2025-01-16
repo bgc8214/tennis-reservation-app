@@ -12,6 +12,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -77,9 +79,12 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   Future<void> _scheduleNotification(String location, DateTime reservationTime) async {
     final now = DateTime.now();
 
+    debugPrint('Attempting to schedule notification for $location at $reservationTime');
+
     if (_alarmSettings[location]?['oneDayBefore'] == true) {
       final oneDayBefore = reservationTime.subtract(Duration(days: 1));
       if (oneDayBefore.isAfter(now)) {
+        debugPrint('Scheduling 1 day before notification for $location at $oneDayBefore');
         await _flutterLocalNotificationsPlugin.zonedSchedule(
           0,
           '예약 알림',
@@ -87,24 +92,27 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
           tz.TZDateTime.from(oneDayBefore, tz.local),
           const NotificationDetails(
             android: AndroidNotificationDetails(
-              'your_channel_id',
-              'your_channel_name',
-              channelDescription: 'your_channel_description',
+              'reservation_timer_channel',
+              'reservation_timer',
+              channelDescription: '테니스장 예약 알림',
               importance: Importance.max,
               priority: Priority.high,
             ),
           ),
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: DateTimeComponents.time,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.inexact,
         );
+        debugPrint('1 day before notification scheduled successfully');
+      } else {
+        debugPrint('1 day before notification not scheduled: time has passed');
       }
     }
 
     if (_alarmSettings[location]?['oneHourBefore'] == true) {
       final oneHourBefore = reservationTime.subtract(Duration(hours: 1));
       if (oneHourBefore.isAfter(now)) {
+        debugPrint('Attempting to schedule 1 hour before notification for $location at $oneHourBefore');
         await _flutterLocalNotificationsPlugin.zonedSchedule(
           1,
           '예약 알림',
@@ -112,18 +120,20 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
           tz.TZDateTime.from(oneHourBefore, tz.local),
           const NotificationDetails(
             android: AndroidNotificationDetails(
-              'your_channel_id',
-              'your_channel_name',
-              channelDescription: 'your_channel_description',
+              'reservation_timer_channel',
+              'reservation_timer',
+              channelDescription: '테니스장 예약 알림',
               importance: Importance.max,
               priority: Priority.high,
             ),
           ),
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: DateTimeComponents.time,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.inexact,
         );
+        debugPrint('1 hour before notification scheduled successfully');
+      } else {
+        debugPrint('1 hour before notification not scheduled: time has passed');
       }
     }
   }
@@ -156,14 +166,15 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
           now,
           _nextReservationTimes[location]?.day ?? 1,
           hour: _nextReservationTimes[location]?.hour ?? 9,
+          minute: _nextReservationTimes[location]?.minute ?? 0,
         )
     };
   }
 
-  DateTime _getNextReservationDate(DateTime now, int day, {int hour = 9}) {
-    var reservationDate = DateTime(now.year, now.month, day, hour, 0);
+  DateTime _getNextReservationDate(DateTime now, int day, {int hour = 9, int minute = 0}) {
+    var reservationDate = DateTime(now.year, now.month, day, hour, minute);
     if (now.isAfter(reservationDate)) {
-      reservationDate = DateTime(now.year, now.month + 1, day, hour, 0);
+      reservationDate = DateTime(now.year, now.month + 1, day, hour, minute);
     }
     return reservationDate;
   }
@@ -259,15 +270,15 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
       final courts = snapshot.docs.map((doc) => doc.data()).toList();
       if (courts.isNotEmpty) {
         setState(() {
-          _bookingUrls = {for (var court in courts) court['name']: court['bookingUrl'] ?? ''};
-          _nextReservationTimes = {
-            for (var court in courts)
-              court['name']: _getNextReservationDate(
-                DateTime.now(),
-                court['day'] ?? 1,
-                hour: court['hour'] ?? 9,
-              )
-          };
+          for (var court in courts) {
+            _bookingUrls[court['name']] = court['bookingUrl'] ?? '';
+            _nextReservationTimes[court['name']] = _getNextReservationDate(
+              DateTime.now(),
+              court['day'] ?? 1,
+              hour: court['hour'] ?? 9,
+              minute: court['minute'] ?? 0,
+            );
+          }
           _nextReservationTimes = Map.fromEntries(
             _nextReservationTimes.entries.toList()
               ..sort((a, b) => a.value.compareTo(b.value)),
