@@ -3,11 +3,19 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'reservation_timer_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await MobileAds.instance.initialize();
+  
+  try {
+    final bool initialized = await AndroidAlarmManager.initialize();
+    debugPrint('알람 매니저 초기화 ${initialized ? "성공" : "실패"}');
+  } catch (e) {
+    debugPrint('알람 매니저 초기화 오류: $e');
+  }
 
   final interstitialAdUnitId = kReleaseMode
       ? 'ca-app-pub-5291862857093530/3944179124' // Release mode ID
