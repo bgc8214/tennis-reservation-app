@@ -38,7 +38,6 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   InterstitialAd? _interstitialAd;
   bool _isInterstitialAdReady = false;
-
   bool _hasShownAd = false;
 
   final TextEditingController _suggestionController = TextEditingController();
@@ -69,34 +68,59 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   Future<void> _initializeFirebase() async {
     await Firebase.initializeApp();
   }
-Future<void> _requestNotificationPermission() async {
-  final status = await Permission.notification.request();
-  if (status.isGranted) {
-    debugPrint('알림 권한이 승인되었습니다.');
-  } else if (status.isDenied) {
-    debugPrint('알림 권한이 거부되었습니다.');
-  } else if (status.isPermanentlyDenied) {
-    debugPrint('알림 권한이 영구적으로 거부되었습니다.');
-    openAppSettings();
+
+  Future<void> _requestNotificationPermission() async {
+    if (Platform.isIOS) {
+      return;
+    }
+    
+    final status = await Permission.notification.request();
+    if (status.isGranted) {
+      debugPrint('알림 권한이 승인되었습니다.');
+    } else if (status.isDenied) {
+      debugPrint('알림 권한이 거부되었습니다.');
+    } else if (status.isPermanentlyDenied) {
+      debugPrint('알림 권한이 영구적으로 거부되었습니다.');
+    }
   }
-}
 
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    final DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    final InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+    
+    final bool? initialized = await _flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        debugPrint('알림 응답 받음: ${response.payload}');
+      },
+    );
 
-Future<void> _initializeNotifications() async {
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  final bool? initialized =
-      await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-  if (initialized == true) {
-    debugPrint('알림 초기화 완료');
-  } else {
-    debugPrint('알림 초기화 실패');
+    if (initialized == true) {
+      debugPrint('알림 초기화 완료');
+      if (Platform.isIOS) {
+        // iOS에서 권한 요청
+        final granted = await _flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+            ?.requestPermissions(
+              alert: true,
+              badge: true,
+              sound: true,
+            );
+        debugPrint('iOS 알림 권한 ${granted == true ? "승인됨" : "거부됨"}');
+      }
+    } else {
+      debugPrint('알림 초기화 실패');
+    }
   }
-}
-
 
   Future<void> _scheduleNotification(String location, DateTime reservationTime) async {
     final now = DateTime.now();
@@ -107,18 +131,50 @@ Future<void> _initializeNotifications() async {
       if (oneDayBefore.isAfter(now)) {
         try {
           final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-          await AndroidAlarmManager.oneShotAt(
-            oneDayBefore,
-            notificationId,
-            _sendReservationNotification,
-            exact: true,
-            wakeup: true,
-            params: {
+          
+          if (Platform.isAndroid) {
+            _sendReservationNotification(notificationId, {
               'title': '예약 알림',
               'body': '$location 예약 1일 전 알림입니다.',
-            },
-          );
-          debugPrint('1 day before notification scheduled successfully for $location at $oneDayBefore');
+            });
+          } else if (Platform.isIOS) {
+            debugPrint('iOS 알림 설정 시작 - 1일 전');
+            
+            final scheduledDate = tz.TZDateTime.from(oneDayBefore, tz.local);
+            debugPrint('iOS 알림 예약 시간 (1일 전): $scheduledDate');
+
+            final notificationDetails = NotificationDetails(
+              iOS: DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+                sound: 'default',
+                badgeNumber: 1,
+                interruptionLevel: InterruptionLevel.timeSensitive,
+                categoryIdentifier: 'tennis_reservation',
+              ),
+              android: AndroidNotificationDetails(
+                'reservation_timer_channel',
+                'reservation_timer',
+                channelDescription: '테니스장 예약 알림',
+                importance: Importance.max,
+                priority: Priority.high,
+              ),
+            );
+
+            await _flutterLocalNotificationsPlugin.zonedSchedule(
+              notificationId,
+              '예약 알림',
+              '$location 1일 전 알림입니다.',
+              scheduledDate,
+              notificationDetails,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+              uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+              payload: 'tennis_reservation_1day',
+            );
+            debugPrint('iOS 1일 전 알림 예약 완료');
+          }
+          debugPrint('1 day before notification scheduled successfully for $location');
         } catch (e) {
           debugPrint('Failed to schedule 1 day before notification: $e');
         }
@@ -132,18 +188,50 @@ Future<void> _initializeNotifications() async {
       if (oneHourBefore.isAfter(now)) {
         try {
           final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-          await AndroidAlarmManager.oneShotAt(
-            oneHourBefore,
-            notificationId,
-            _sendReservationNotification,
-            exact: true,
-            wakeup: true,
-            params: {
+          
+          if (Platform.isAndroid) {
+            _sendReservationNotification(notificationId, {
               'title': '예약 알림',
               'body': '$location 예약 1시간 전 알림입니다.',
-            },
-          );
-          debugPrint('1 hour before notification scheduled successfully for $location at $oneHourBefore');
+            });
+          } else if (Platform.isIOS) {
+            debugPrint('iOS 알림 설정 시작 - 1시간 전');
+            
+            final scheduledDate = tz.TZDateTime.from(oneHourBefore, tz.local);
+            debugPrint('iOS 알림 예약 시간 (1시간 전): $scheduledDate');
+
+            final notificationDetails = NotificationDetails(
+              iOS: DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+                sound: 'default',
+                badgeNumber: 1,
+                interruptionLevel: InterruptionLevel.timeSensitive,
+                categoryIdentifier: 'tennis_reservation',
+              ),
+              android: AndroidNotificationDetails(
+                'reservation_timer_channel',
+                'reservation_timer',
+                channelDescription: '테니스장 예약 알림',
+                importance: Importance.max,
+                priority: Priority.high,
+              ),
+            );
+
+            await _flutterLocalNotificationsPlugin.zonedSchedule(
+              notificationId,
+              '예약 알림',
+              '$location 1시간 전 알림입니다.',
+              scheduledDate,
+              notificationDetails,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+              uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+              payload: 'tennis_reservation_1hour',
+            );
+            debugPrint('iOS 1시간 전 알림 예약 완료');
+          }
+          debugPrint('1 hour before notification scheduled successfully for $location');
         } catch (e) {
           debugPrint('Failed to schedule 1 hour before notification: $e');
         }
@@ -151,6 +239,9 @@ Future<void> _initializeNotifications() async {
         debugPrint('1 hour before notification not scheduled: time has passed');
       }
     }
+
+    // 예약된 알림 확인
+    await _checkPendingNotifications();
   }
 
   Future<void> _loadAlarmSettings() async {
@@ -308,80 +399,77 @@ Future<void> _initializeNotifications() async {
     }
   }
 
-Future<void> _requestExactAlarmPermission() async {
-  if (Platform.isAndroid) {
-    const MethodChannel channel = MethodChannel('exact_alarm_permission');
+  Future<void> _requestExactAlarmPermission() async {
+    if (Platform.isAndroid) {
+      const MethodChannel channel = MethodChannel('exact_alarm_permission');
 
-    try {
-      final bool isGranted = await channel.invokeMethod('checkExactAlarmPermission');
-      if (!isGranted) {
-        final intent = AndroidIntent(
-          action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-          package: 'com.boss.tennis_app',
-        );
-        await intent.launch();
+      try {
+        final bool isGranted = await channel.invokeMethod('checkExactAlarmPermission');
+        if (!isGranted) {
+          final intent = AndroidIntent(
+            action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+            package: 'com.boss.tennis_app',
+          );
+          await intent.launch();
+        }
+      } catch (e) {
+        print("Error checking exact alarm permission: $e");
       }
-    } catch (e) {
-      print("Error checking exact alarm permission: $e");
     }
   }
-}
 
-@pragma('vm:entry-point')
-static void _sendReservationNotification(int id, Map<String, dynamic> params) async {
-  debugPrint("🔥 예약 알림 콜백 시작");
-  
-  try {
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    debugPrint("🔥 FlutterLocalNotificationsPlugin 인스턴스 생성");
+  @pragma('vm:entry-point')
+  static void _sendReservationNotification(int id, Map<String, dynamic> params) async {
+    debugPrint("🔥 예약 알림 콜백 시작");
     
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    
-    final bool? initialized = await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        debugPrint("🔥 알림 응답 받음: ${response.payload}");
-      },
-    );
-    debugPrint("🔥 알림 초기화 ${initialized == true ? '성공' : '실패'}");
+    try {
+      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      
+      const AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
+        'reservation_channel',
+        'Reservation Notifications',
+        channelDescription: '테니스장 예약 알림을 위한 채널',
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+      );
 
-    const AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
-      'reservation_channel',
-      'Reservation Notifications',
-      channelDescription: '테니스장 예약 알림을 위한 채널',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      playSound: true,
-    );
-    
-    const NotificationDetails notificationDetails = NotificationDetails(android: androidNotificationDetails);
-    
-    await flutterLocalNotificationsPlugin.show(
-      id,
-      params['title'],
-      params['body'],
-      notificationDetails,
-    );
-    debugPrint("🔥 예약 알림 전송 완료");
-  } catch (e, stackTrace) {
-    debugPrint("🔥 예약 알림 처리 중 오류 발생: $e");
-    debugPrint("🔥 스택 트레이스: $stackTrace");
+      final DarwinNotificationDetails iOSNotificationDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'default',
+        badgeNumber: 1,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      );
+      
+      final NotificationDetails notificationDetails = NotificationDetails(
+        android: androidNotificationDetails,
+        iOS: iOSNotificationDetails,
+      );
+      
+      await flutterLocalNotificationsPlugin.show(
+        id,
+        params['title'],
+        params['body'],
+        notificationDetails,
+      );
+      debugPrint("🔥 예약 알림 전송 완료");
+    } catch (e, stackTrace) {
+      debugPrint("🔥 예약 알림 처리 중 오류 발생: $e");
+      debugPrint("🔥 스택 트레이스: $stackTrace");
+    }
   }
-}
 
-Future<void> _checkPendingNotifications() async {
-  final pendingRequests = await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
-  for (var request in pendingRequests) {
-    debugPrint('알림 ID: ${request.id}, 제목: ${request.title}, 내용: ${request.body}');
+  Future<void> _checkPendingNotifications() async {
+    final pendingRequests = await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+    for (var request in pendingRequests) {
+      debugPrint('알림 ID: ${request.id}, 제목: ${request.title}, 내용: ${request.body}');
+    }
+    debugPrint('총 예약된 알림 개수: ${pendingRequests.length}');
   }
-  debugPrint('총 예약된 알림 개수: ${pendingRequests.length}');
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -410,7 +498,7 @@ Future<void> _checkPendingNotifications() async {
                               final bookingUrl = _bookingUrls[location];
 
                               if (reservationTime == null || bookingUrl == null) {
-                                return SizedBox.shrink(); // Return an empty widget if data is missing
+                                return SizedBox.shrink();
                               }
 
                               final remainingTime = reservationTime.difference(now);
@@ -442,7 +530,7 @@ Future<void> _checkPendingNotifications() async {
             ),
           ),
           Positioned(
-            bottom: 50,
+            bottom: 100,
             right: 16,
             child: GestureDetector(
               onTap: () {
