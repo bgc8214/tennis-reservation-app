@@ -131,50 +131,41 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
       if (oneDayBefore.isAfter(now)) {
         try {
           final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-          
-          if (Platform.isAndroid) {
-            _sendReservationNotification(notificationId, {
-              'title': '예약 알림',
-              'body': '$location 예약 1일 전 알림입니다.',
-            });
-          } else if (Platform.isIOS) {
-            debugPrint('iOS 알림 설정 시작 - 1일 전');
-            
-            final scheduledDate = tz.TZDateTime.from(oneDayBefore, tz.local);
-            debugPrint('iOS 알림 예약 시간 (1일 전): $scheduledDate');
+          final scheduledDate = tz.TZDateTime.from(oneDayBefore, tz.local);
+          debugPrint('알림 예약 시간 (1일 전): $scheduledDate');
 
-            final notificationDetails = NotificationDetails(
-              iOS: DarwinNotificationDetails(
-                presentAlert: true,
-                presentBadge: true,
-                presentSound: true,
-                sound: 'default',
-                badgeNumber: 1,
-                interruptionLevel: InterruptionLevel.timeSensitive,
-                categoryIdentifier: 'tennis_reservation',
-              ),
-              android: AndroidNotificationDetails(
-                'reservation_timer_channel',
-                'reservation_timer',
-                channelDescription: '테니스장 예약 알림',
-                importance: Importance.max,
-                priority: Priority.high,
-              ),
-            );
+          final notificationDetails = NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              sound: 'default',
+              badgeNumber: 1,
+              interruptionLevel: InterruptionLevel.timeSensitive,
+              categoryIdentifier: 'tennis_reservation',
+            ),
+            android: AndroidNotificationDetails(
+              'reservation_timer_channel',
+              'reservation_timer',
+              channelDescription: '테니스장 예약 알림',
+              importance: Importance.max,
+              priority: Priority.high,
+              enableVibration: true,
+              playSound: true,
+            ),
+          );
 
-            await _flutterLocalNotificationsPlugin.zonedSchedule(
-              notificationId,
-              '예약 알림',
-              '$location 1일 전 알림입니다.',
-              scheduledDate,
-              notificationDetails,
-              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-              uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-              payload: 'tennis_reservation_1day',
-            );
-            debugPrint('iOS 1일 전 알림 예약 완료');
-          }
-          debugPrint('1 day before notification scheduled successfully for $location');
+          await _flutterLocalNotificationsPlugin.zonedSchedule(
+            notificationId,
+            '예약 알림',
+            '$location 1일 전 알림입니다.',
+            scheduledDate,
+            notificationDetails,
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+            payload: 'tennis_reservation_1day',
+          );
+          debugPrint('1일 전 알림 예약 완료');
         } catch (e) {
           debugPrint('Failed to schedule 1 day before notification: $e');
         }
@@ -188,50 +179,41 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
       if (oneHourBefore.isAfter(now)) {
         try {
           final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-          
-          if (Platform.isAndroid) {
-            _sendReservationNotification(notificationId, {
-              'title': '예약 알림',
-              'body': '$location 예약 1시간 전 알림입니다.',
-            });
-          } else if (Platform.isIOS) {
-            debugPrint('iOS 알림 설정 시작 - 1시간 전');
-            
-            final scheduledDate = tz.TZDateTime.from(oneHourBefore, tz.local);
-            debugPrint('iOS 알림 예약 시간 (1시간 전): $scheduledDate');
+          final scheduledDate = tz.TZDateTime.from(oneHourBefore, tz.local);
+          debugPrint('알림 예약 시간 (1시간 전): $scheduledDate');
 
-            final notificationDetails = NotificationDetails(
-              iOS: DarwinNotificationDetails(
-                presentAlert: true,
-                presentBadge: true,
-                presentSound: true,
-                sound: 'default',
-                badgeNumber: 1,
-                interruptionLevel: InterruptionLevel.timeSensitive,
-                categoryIdentifier: 'tennis_reservation',
-              ),
-              android: AndroidNotificationDetails(
-                'reservation_timer_channel',
-                'reservation_timer',
-                channelDescription: '테니스장 예약 알림',
-                importance: Importance.max,
-                priority: Priority.high,
-              ),
-            );
+          final notificationDetails = NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              sound: 'default',
+              badgeNumber: 1,
+              interruptionLevel: InterruptionLevel.timeSensitive,
+              categoryIdentifier: 'tennis_reservation',
+            ),
+            android: AndroidNotificationDetails(
+              'reservation_timer_channel',
+              'reservation_timer',
+              channelDescription: '테니스장 예약 알림',
+              importance: Importance.max,
+              priority: Priority.high,
+              enableVibration: true,
+              playSound: true,
+            ),
+          );
 
-            await _flutterLocalNotificationsPlugin.zonedSchedule(
-              notificationId,
-              '예약 알림',
-              '$location 1시간 전 알림입니다.',
-              scheduledDate,
-              notificationDetails,
-              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-              uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-              payload: 'tennis_reservation_1hour',
-            );
-            debugPrint('iOS 1시간 전 알림 예약 완료');
-          }
-          debugPrint('1 hour before notification scheduled successfully for $location');
+          await _flutterLocalNotificationsPlugin.zonedSchedule(
+            notificationId,
+            '예약 알림',
+            '$location 1시간 전 알림입니다.',
+            scheduledDate,
+            notificationDetails,
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+            payload: 'tennis_reservation_1hour',
+          );
+          debugPrint('1시간 전 알림 예약 완료');
         } catch (e) {
           debugPrint('Failed to schedule 1 hour before notification: $e');
         }
