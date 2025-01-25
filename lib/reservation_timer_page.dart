@@ -17,6 +17,7 @@ import 'package:android_intent_plus/flag.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -50,7 +51,6 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   void initState() {
     super.initState();
     _initializeFirebase();
-    _fetchTennisCourts();
     _requestNotificationPermission();
     _requestExactAlarmPermission();
     tz.initializeTimeZones();
@@ -67,6 +67,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   Future<void> _initializeFirebase() async {
     await Firebase.initializeApp();
+    await _fetchTennisCourts();
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -277,7 +278,10 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   }
 
   void _loadBannerAd() {
-    final bannerAdUnitId = 'ca-app-pub-3940256099942544/9214589741'; // Debug mode ID
+    // 릴리즈 모드와 디버그 모드에 따라 다른 광고 ID 사용
+    final bannerAdUnitId = kReleaseMode
+        ? 'ca-app-pub-5291862857093530/5190376835'  // 릴리즈 모드
+        : 'ca-app-pub-3940256099942544/9214589741'; // 테스트 광고 ID
 
     _bannerAd = BannerAd(
       adUnitId: bannerAdUnitId,
@@ -290,7 +294,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
           });
         },
         onAdFailedToLoad: (ad, error) {
-          print('BannerAd failed to load: $error');
+          debugPrint('BannerAd failed to load: $error');
           _isBannerAdReady = false;
           ad.dispose();
         },
@@ -299,8 +303,11 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   }
 
   void _loadInterstitialAd() {
+    // 테스트 광고 ID 사용
+    final interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
+
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712', // Debug mode ID
+      adUnitId: interstitialAdUnitId,
       request: AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (InterstitialAd ad) {
@@ -312,7 +319,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
           }
         },
         onAdFailedToLoad: (LoadAdError error) {
-          print('InterstitialAd failed to load: $error');
+          debugPrint('InterstitialAd failed to load: $error');
           _isInterstitialAdReady = false;
         },
       ),
@@ -464,43 +471,50 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
             child: Column(
               children: [
                 Expanded(
-                  child: CupertinoScrollbar(
-                    child: CustomScrollView(
-                      slivers: <Widget>[
-                        CupertinoSliverRefreshControl(
-                          onRefresh: () async {
-                            await _fetchTennisCourts();
-                          },
-                        ),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (BuildContext context, int index) {
-                              final location = _nextReservationTimes.keys.elementAt(index);
-                              final reservationTime = _nextReservationTimes[location];
-                              final bookingUrl = _bookingUrls[location];
+                  child: _nextReservationTimes.isEmpty
+                      ? const Center(
+                          child: CupertinoActivityIndicator(
+                            radius: 20.0,
+                          ),
+                        )
+                      : CupertinoScrollbar(
+                          child: CustomScrollView(
+                            slivers: <Widget>[
+                              CupertinoSliverRefreshControl(
+                                onRefresh: () async {
+                                  await _fetchTennisCourts();
+                                },
+                              ),
+                              SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (BuildContext context, int index) {
+                                    final location = _nextReservationTimes.keys.elementAt(index);
+                                    final reservationTime = _nextReservationTimes[location];
+                                    final bookingUrl = _bookingUrls[location];
 
-                              if (reservationTime == null || bookingUrl == null) {
-                                return SizedBox.shrink();
-                              }
+                                    if (reservationTime == null || bookingUrl == null) {
+                                      return SizedBox.shrink();
+                                    }
 
-                              final remainingTime = reservationTime.difference(now);
+                                    final remainingTime = reservationTime.difference(now);
 
-                              return ReservationCard(
-                                location: location,
-                                reservationTime: reservationTime,
-                                remainingTime: remainingTime,
-                                bookingUrl: bookingUrl,
-                                alarmSettings: _alarmSettings,
-                                onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) => _onAlarmSettingsChanged(location, oneDayBefore, oneHourBefore),
-                                onLaunchURL: _launchURL,
-                              );
-                            },
-                            childCount: _nextReservationTimes.length,
+                                    return ReservationCard(
+                                      location: location,
+                                      reservationTime: reservationTime,
+                                      remainingTime: remainingTime,
+                                      bookingUrl: bookingUrl,
+                                      alarmSettings: _alarmSettings,
+                                      onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) => 
+                                          _onAlarmSettingsChanged(location, oneDayBefore, oneHourBefore),
+                                      onLaunchURL: _launchURL,
+                                    );
+                                  },
+                                  childCount: _nextReservationTimes.length,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
                 ),
                 if (_isBannerAdReady)
                   Container(
