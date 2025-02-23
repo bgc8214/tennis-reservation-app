@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tennis App</string>
+	<string>코트알람</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -33,6 +33,11 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.boss.tennis_app.notification</string>
+		<string>com.boss.tennis_app.refresh</string>
 	</array>
 	<key>SKAdNetworkItems</key>
 	<array>
@@ -64,5 +69,11 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>테니스 코트 예약 알림을 보내기 위해 알림 권한이 필요합니다.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>naversearchapp</string>
+		<string>http</string>
+		<string>https</string>
+	</array>
 </dict>
 </plist>

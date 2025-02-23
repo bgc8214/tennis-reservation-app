@@ -270,18 +270,71 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   void _launchURL(String url) async {
     final uri = Uri.parse(url);
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      debugPrint('Could not launch $url');
+    if (Platform.isAndroid) {
+      // 안드로이드에서는 선택 다이얼로그 표시
+      final intent = AndroidIntent(
+        action: 'android.intent.action.VIEW',
+        data: url,
+        package: 'com.nhn.android.search', // 네이버 앱 패키지
+      );
+
+      try {
+        // 네이버 앱으로 열기 시도
+        await intent.launch();
+      } catch (e) {
+        // 네이버 앱이 없거나 실패하면 기본 브라우저로 열기
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } else if (Platform.isIOS) {
+      // iOS에서는 네이버 앱 URL 스킴 사용
+      final naverUrl = 'naversearchapp://inappbrowser?url=${Uri.encodeComponent(url)}';
+      final naverUri = Uri.parse(naverUrl);
+      
+      try {
+        final canLaunchNaver = await canLaunchUrl(naverUri);
+        if (canLaunchNaver) {
+          // 네이버 앱이 설치되어 있으면 선택 다이얼로그 표시
+          showCupertinoModalPopup(
+            context: context,
+            builder: (context) => CupertinoActionSheet(
+              actions: [
+                CupertinoActionSheetAction(
+                  child: Text('네이버 앱으로 열기'),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await launchUrl(naverUri);
+                  },
+                ),
+                CupertinoActionSheetAction(
+                  child: Text('브라우저로 열기'),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  },
+                ),
+              ],
+              cancelButton: CupertinoActionSheetAction(
+                child: Text('취소'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          );
+        } else {
+          // 네이버 앱이 없으면 기본 브라우저로 열기
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      } catch (e) {
+        // 오류 발생 시 기본 브라우저로 열기
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     }
   }
 
   void _loadBannerAd() {
-    // 릴리즈 모드와 디버그 모드에 따라 다른 광고 ID 사용
-    final bannerAdUnitId = kReleaseMode
-        ? 'ca-app-pub-5291862857093530/5190376835'  // 릴리즈 모드
-        : 'ca-app-pub-3940256099942544/9214589741'; // 테스트 광고 ID
+    // 테스트 광고 ID 사용
+    final bannerAdUnitId = 'ca-app-pub-3940256099942544/9214589741'; // 테스트 광고 ID
 
     _bannerAd = BannerAd(
       adUnitId: bannerAdUnitId,
@@ -352,8 +405,43 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
         'timestamp': FieldValue.serverTimestamp(),
       });
       debugPrint('Suggestion submitted successfully');
+      
+      // 성공 메시지 표시
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: Text('접수 완료'),
+            content: Text('건의가 성공적으로 접수되었습니다.\n\n소중한 의견을 검토하여 반영할 수 있도록 노력하겠습니다.\n\n감사합니다!'),
+            actions: [
+              CupertinoDialogAction(
+                child: Text('확인'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Failed to submit suggestion: $e');
+      // 오류 메시지 표시
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: Text('오류'),
+            content: Text('건의사항 제출 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.'),
+            actions: [
+              CupertinoDialogAction(
+                child: Text('확인'),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -579,8 +667,9 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                           ),
                           onPressed: () {
                             final suggestion = _suggestionController.text;
-                            _submitSuggestion(suggestion);
-                            Navigator.of(context).pop();
+                            _suggestionController.clear(); // 먼저 입력 필드 초기화
+                            Navigator.pop(context); // 다이얼로그 닫기
+                            _submitSuggestion(suggestion); // 건의사항 제출
                           },
                         ),
                       ],
