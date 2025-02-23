@@ -68,7 +68,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const CupertinoApp(
-      title: '테니스장 예약 타이머',
+      title: '코트알람',
       theme: CupertinoThemeData(
         primaryColor: CupertinoColors.activeGreen,
         brightness: Brightness.light,
@@ -97,10 +97,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _loadAd() {
-    // 릴리즈 모드와 디버그 모드에 따라 다른 광고 ID 사용
-    final interstitialAdUnitId = kReleaseMode
-        ? 'ca-app-pub-5291862857093530/6305546752'  // 릴리즈 모드
-        : 'ca-app-pub-3940256099942544/1033173712'; // 테스트 광고 ID
+    // 테스트 광고 ID 사용
+    final interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712'; // 테스트 광고 ID
 
     InterstitialAd.load(
       adUnitId: interstitialAdUnitId,

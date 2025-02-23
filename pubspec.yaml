@@ -1,5 +1,5 @@
 name: tennis_app
-version: 1.0.0+1
+version: 1.0.1+4
 
 environment:
   sdk: ^3.6.0
