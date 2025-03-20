@@ -18,6 +18,8 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'services/notice_service.dart';
+import 'widgets/notice_popup.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -47,6 +49,8 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   static const String NOTIFICATION_CHANNEL_NAME = 'reservation_timer';
   static const String NOTIFICATION_CHANNEL_DESC = '테니스장 예약 알림';
 
+  final NoticeService _noticeService = NoticeService();
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +67,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
       });
     });
     _loadBannerAd();
+    _checkNotices();
   }
 
   Future<void> _initializeFirebase() async {
@@ -333,8 +338,10 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
   }
 
   void _loadBannerAd() {
-    // 테스트 광고 ID 사용
-    final bannerAdUnitId = 'ca-app-pub-3940256099942544/9214589741'; // 테스트 광고 ID
+    // 릴리즈 모드와 디버그 모드에 따라 다른 광고 ID 사용
+    final bannerAdUnitId = kReleaseMode
+        ? 'ca-app-pub-5291862857093530/5190376835'  // 릴리즈 모드 (실제 광고)
+        : 'ca-app-pub-3940256099942544/9214589741'; // 테스트 광고 ID
 
     _bannerAd = BannerAd(
       adUnitId: bannerAdUnitId,
@@ -546,6 +553,28 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
       debugPrint('알림 ID: ${request.id}, 제목: ${request.title}, 내용: ${request.body}');
     }
     debugPrint('총 예약된 알림 개수: ${pendingRequests.length}');
+  }
+
+  Future<void> _checkNotices() async {
+    try {
+      final unviewedNotice = await _noticeService.getUnviewedNotice();
+      if (unviewedNotice != null && mounted) {
+        // 공지사항 팝업 표시
+        await showCupertinoDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => NoticePopup(
+            notice: unviewedNotice,
+            onConfirm: () {
+              _noticeService.markNoticeAsViewed(unviewedNotice.id);
+              Navigator.pop(context);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      print('공지사항 확인 중 오류 발생: $e');
+    }
   }
 
   @override
