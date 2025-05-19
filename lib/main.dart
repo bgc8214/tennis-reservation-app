@@ -10,13 +10,33 @@ import 'dart:io' show Platform;
 import 'dart:async' show unawaited;
 import 'dart:async' show Completer;
 import 'package:flutter/foundation.dart';
+import 'firebase_options.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Firebase 초기화 먼저 실행 (필수)
-  await Firebase.initializeApp();
-  
+  // Firebase 초기화 시도
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('Firebase 초기화 성공');
+  } catch (e) {
+    debugPrint('Firebase 초기화 실패: $e');
+    // Firebase 초기화 실패해도 앱은 계속 실행
+  }
+
+  // MobileAds 초기화
+  try {
+    await MobileAds.instance.initialize();
+    debugPrint('MobileAds 초기화 성공');
+  } catch (e) {
+    debugPrint('MobileAds 초기화 실패: $e');
+    // 광고 초기화 실패해도 앱은 계속 실행
+  }
+
   // 앱 실행
   runApp(const MyApp());
   
@@ -67,13 +87,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CupertinoApp(
+    return CupertinoApp(
+      navigatorKey: navigatorKey,
       title: '코트알람',
-      theme: CupertinoThemeData(
+      theme: const CupertinoThemeData(
         primaryColor: CupertinoColors.activeGreen,
         brightness: Brightness.light,
       ),
-      home: SplashScreen(),
+      home: const SplashScreen(),
     );
   }
 }
@@ -97,28 +118,36 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _loadAd() {
-    // 릴리즈 모드와 디버그 모드에 따라 다른 광고 ID 사용
-    final interstitialAdUnitId = kReleaseMode
-        ? 'ca-app-pub-5291862857093530/6305546752'  // 릴리즈 모드 (실제 광고)
-        : 'ca-app-pub-3940256099942544/1033173712'; // 테스트 광고 ID
+    try {
+      // 릴리즈 모드와 디버그 모드에 따라 다른 광고 ID 사용
+      final interstitialAdUnitId = kReleaseMode
+          ? 'ca-app-pub-5291862857093530/6305546752'  // 릴리즈 모드
+          : 'ca-app-pub-3940256099942544/1033173712'; // 테스트 광고 ID
 
-    InterstitialAd.load(
-      adUnitId: interstitialAdUnitId,
-      request: AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (InterstitialAd ad) {
-          if (!_adCompleter.isCompleted) {
-            _adCompleter.complete(ad);
-          }
-        },
-        onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('InterstitialAd failed to load: $error');
-          if (!_adCompleter.isCompleted) {
-            _adCompleter.complete(null);
-          }
-        },
-      ),
-    );
+      InterstitialAd.load(
+        adUnitId: interstitialAdUnitId,
+        request: const AdRequest(),
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (InterstitialAd ad) {
+            if (!_adCompleter.isCompleted) {
+              _adCompleter.complete(ad);
+            }
+          },
+          onAdFailedToLoad: (LoadAdError error) {
+            debugPrint('전면 광고 로드 실패: $error');
+            if (!_adCompleter.isCompleted) {
+              _adCompleter.complete(null);
+            }
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('광고 로드 중 예외 발생: $e');
+      // 광고 로드 실패해도 앱은 계속 실행
+      if (!_adCompleter.isCompleted) {
+        _adCompleter.complete(null);
+      }
+    }
   }
 
   Future<void> _navigateToMain() async {
