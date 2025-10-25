@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.6</string>
+	<string>1.0.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>13</string>
+	<string>12</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-5291862857093530~5724190303</string>
 	<key>LSRequiresIPhoneOS</key>
