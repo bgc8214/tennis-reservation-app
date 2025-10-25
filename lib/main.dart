@@ -1,16 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:provider/provider.dart';
 import 'reservation_timer_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'dart:io' show Platform;
-import 'dart:async' show unawaited;
-import 'dart:async' show Completer;
-import 'package:flutter/foundation.dart';
+import 'dart:async' show unawaited, Completer;
 import 'firebase_options.dart';
+import 'providers/court_provider.dart';
+import 'providers/favorite_provider.dart';
+import 'providers/alarm_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -42,19 +45,22 @@ void main() async {
   
   // 나머지 초기화는 백그라운드에서 진행
   unawaited(MobileAds.instance.initialize());
-  
+
   // 알림 초기화
-  if (Platform.isIOS) {
-    unawaited(_initializeNotifications());
-  } else {
-    unawaited(_initializeNotifications());
-  }
+  final flutterLocalNotificationsPlugin = await _initializeNotifications();
+
+  // 타임존 초기화
+  tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
 }
 
-Future<void> _initializeNotifications() async {
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-  final DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings(
+final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+Future<FlutterLocalNotificationsPlugin> _initializeNotifications() async {
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  final DarwinInitializationSettings initializationSettingsIOS =
+      DarwinInitializationSettings(
     requestAlertPermission: true,
     requestBadgePermission: true,
     requestSoundPermission: true,
@@ -63,15 +69,15 @@ Future<void> _initializeNotifications() async {
     android: initializationSettingsAndroid,
     iOS: initializationSettingsIOS,
   );
-  await flutterLocalNotificationsPlugin.initialize(
+  await _flutterLocalNotificationsPlugin.initialize(
     initializationSettings,
     onDidReceiveNotificationResponse: (NotificationResponse response) {
       debugPrint('알림 응답 받음: ${response.payload}');
     },
   );
-  
+
   tz.initializeTimeZones();
-  
+
   if (Platform.isAndroid) {
     try {
       final bool initialized = await AndroidAlarmManager.initialize();
@@ -80,6 +86,8 @@ Future<void> _initializeNotifications() async {
       debugPrint('알람 매니저 초기화 오류: $e');
     }
   }
+
+  return _flutterLocalNotificationsPlugin;
 }
 
 class MyApp extends StatelessWidget {
@@ -87,14 +95,26 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
-      navigatorKey: navigatorKey,
-      title: '코트알람',
-      theme: const CupertinoThemeData(
-        primaryColor: CupertinoColors.activeGreen,
-        brightness: Brightness.light,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CourtProvider()),
+        ChangeNotifierProvider(create: (_) => FavoriteProvider()),
+        ChangeNotifierProvider(
+          create: (_) => AlarmProvider(_flutterLocalNotificationsPlugin),
+        ),
+      ],
+      child: CupertinoApp(
+        navigatorKey: navigatorKey,
+        title: '코트알람',
+        theme: CupertinoThemeData(
+          primaryColor: CupertinoColors.activeGreen,
+          // 시스템 설정에 따라 자동으로 다크모드 적용
+          brightness: MediaQueryData.fromView(
+                  WidgetsBinding.instance.platformDispatcher.views.first)
+              .platformBrightness,
+        ),
+        home: const SplashScreen(),
       ),
-      home: const SplashScreen(),
     );
   }
 }
