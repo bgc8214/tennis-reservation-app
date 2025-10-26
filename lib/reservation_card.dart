@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'models/tennis_court.dart';
 import 'providers/alarm_provider.dart';
 import 'providers/court_provider.dart';
 import 'widgets/custom_alarm_settings_dialog.dart';
@@ -15,6 +16,7 @@ class ReservationCard extends StatefulWidget {
   final Function(bool, bool) onAlarmSettingsChanged;
   final Function(String) onLaunchURL;
   final VoidCallback onToggleFavorite;
+  final OpeningType openingType;
 
   const ReservationCard({
     Key? key,
@@ -27,6 +29,7 @@ class ReservationCard extends StatefulWidget {
     required this.onAlarmSettingsChanged,
     required this.onLaunchURL,
     required this.onToggleFavorite,
+    required this.openingType,
   }) : super(key: key);
 
   @override
@@ -95,7 +98,13 @@ class _ReservationCardState extends State<ReservationCard>
 
   String _formatDate(DateTime date) {
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-    return '${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    if (widget.openingType == OpeningType.weekly) {
+      // 주간 오픈: 간결하게 날짜만 표시
+      return '${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]})';
+    } else {
+      // 월간 오픈: 시간까지 표시
+      return '${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
   }
 
   Color _getColorForRemainingDays(int days) {
@@ -117,7 +126,11 @@ class _ReservationCardState extends State<ReservationCard>
   }
 
   String _formatOpenTime(DateTime date) {
-    return '매달 ${date.day}일 ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분 오픈';
+    if (widget.openingType == OpeningType.weekly) {
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} 오픈';
+    } else {
+      return '매달 ${date.day}일 ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분 오픈';
+    }
   }
 
   int _getAlarmCount(dynamic alarmSetting) {
@@ -358,16 +371,35 @@ class _ReservationCardState extends State<ReservationCard>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: CupertinoColors.systemBlue.withOpacity(0.1),
+                          color: widget.openingType == OpeningType.weekly
+                              ? CupertinoColors.systemPurple.withOpacity(0.1)
+                              : CupertinoColors.systemBlue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
-                          '예약일',
-                          style: TextStyle(
-                            color: CupertinoColors.systemBlue,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.openingType == OpeningType.weekly)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Text(
+                                  '🔄',
+                                  style: TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            Text(
+                              widget.openingType == OpeningType.weekly
+                                  ? '매일 오픈'
+                                  : '예약일',
+                              style: TextStyle(
+                                color: widget.openingType == OpeningType.weekly
+                                    ? CupertinoColors.systemPurple
+                                    : CupertinoColors.systemBlue,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

@@ -8,10 +8,12 @@ import 'package:flutter/foundation.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'models/tennis_court.dart';
 import 'providers/court_provider.dart';
 import 'providers/favorite_provider.dart';
 import 'providers/alarm_provider.dart';
 import 'reservation_card.dart';
+import 'rolling_reservation_card.dart';
 import 'services/notice_service.dart';
 import 'widgets/notice_popup.dart';
 import 'screens/calendar_view_page.dart';
@@ -33,11 +35,21 @@ enum SortOption {
   final IconData icon;
 }
 
+enum CourtTypeTab {
+  all('전체'),
+  monthly('월간 오픈'),
+  rolling('롤링 예약');
+
+  const CourtTypeTab(this.label);
+  final String label;
+}
+
 class _ReservationTimerPageState extends State<ReservationTimerPage> {
   Timer? _timer;
   String _searchQuery = '';
   bool _showOnlyFavorites = false;
   SortOption _sortOption = SortOption.time;
+  CourtTypeTab _selectedTab = CourtTypeTab.all;
 
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
@@ -326,6 +338,60 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                           });
                         },
                       ),
+                      const SizedBox(height: 12),
+                      // 탭 UI
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemGrey6,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: CourtTypeTab.values.map((tab) {
+                            final isSelected = _selectedTab == tab;
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedTab = tab;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? CupertinoColors.white
+                                        : null,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: isSelected
+                                        ? [
+                                            const BoxShadow(
+                                              color: Color.fromRGBO(0, 0, 0, 0.1),
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Text(
+                                    tab.label,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                      color: isSelected
+                                          ? CupertinoColors.activeBlue
+                                          : CupertinoColors.systemGrey,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -497,45 +563,11 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                                     ),
                                   ),
                                 )
-                          : CupertinoScrollbar(
-                              child: CustomScrollView(
-                                slivers: <Widget>[
-                                  CupertinoSliverRefreshControl(
-                                    onRefresh: () async {
-                                      await courtProvider.fetchCourts();
-                                    },
-                                  ),
-                                  SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                      (BuildContext context, int index) {
-                                        final court = filteredCourts[index];
-                                        final reservationTime =
-                                            court.getNextReservationDate();
-                                        final remainingTime =
-                                            reservationTime.difference(now);
-
-                                        return ReservationCard(
-                                          location: court.name,
-                                          reservationTime: reservationTime,
-                                          remainingTime: remainingTime,
-                                          bookingUrl: court.bookingUrl,
-                                          alarmSettings: {},
-                                          isFavorite: favoriteProvider
-                                              .isFavorite(court.name),
-                                          onAlarmSettingsChanged:
-                                              (oneDayBefore, oneHourBefore) {},
-                                          onLaunchURL: _launchURL,
-                                          onToggleFavorite: () {
-                                            favoriteProvider
-                                                .toggleFavorite(court.name);
-                                          },
-                                        );
-                                      },
-                                      childCount: filteredCourts.length,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          : _buildCourtsList(
+                              filteredCourts,
+                              courtProvider,
+                              favoriteProvider,
+                              now,
                             ),
                 ),
                 if (_isBannerAdReady)
@@ -547,6 +579,169 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourtsList(
+    List<TennisCourt> courts,
+    CourtProvider courtProvider,
+    FavoriteProvider favoriteProvider,
+    DateTime now,
+  ) {
+    // 월간 오픈과 롤링 예약 분리
+    final monthlyCourts =
+        courts.where((c) => c.openingType == OpeningType.monthly).toList();
+    final rollingCourts =
+        courts.where((c) => c.openingType == OpeningType.weekly).toList();
+
+    // 탭에 따라 표시할 코트 필터링
+    List<TennisCourt> displayCourts;
+    bool showSections = false;
+
+    switch (_selectedTab) {
+      case CourtTypeTab.all:
+        displayCourts = courts;
+        showSections = true; // 전체 탭에서는 섹션 헤더 표시
+        break;
+      case CourtTypeTab.monthly:
+        displayCourts = monthlyCourts;
+        break;
+      case CourtTypeTab.rolling:
+        displayCourts = rollingCourts;
+        break;
+    }
+
+    return CupertinoScrollbar(
+      child: CustomScrollView(
+        slivers: <Widget>[
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              await courtProvider.fetchCourts();
+            },
+          ),
+          // 월간 오픈 섹션
+          if ((_selectedTab == CourtTypeTab.all || _selectedTab == CourtTypeTab.monthly) && monthlyCourts.isNotEmpty) ...[
+            // 섹션 헤더 (전체 탭에서만)
+            if (showSections)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '📅',
+                        style: TextStyle(fontSize: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '이번 달 예약 오픈',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${monthlyCourts.length}개',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: CupertinoColors.systemGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (BuildContext context, int index) {
+                  final court = monthlyCourts[index];
+                  final reservationTime = court.getNextReservationDate();
+                  final remainingTime = reservationTime.difference(now);
+
+                  return ReservationCard(
+                    location: court.name,
+                    reservationTime: reservationTime,
+                    remainingTime: remainingTime,
+                    bookingUrl: court.bookingUrl,
+                    alarmSettings: {},
+                    isFavorite: favoriteProvider.isFavorite(court.name),
+                    onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) {},
+                    onLaunchURL: _launchURL,
+                    onToggleFavorite: () {
+                      favoriteProvider.toggleFavorite(court.name);
+                    },
+                    openingType: court.openingType,
+                  );
+                },
+                childCount: monthlyCourts.length,
+              ),
+            ),
+          ],
+          // 롤링 예약 섹션
+          if ((_selectedTab == CourtTypeTab.all || _selectedTab == CourtTypeTab.rolling) && rollingCourts.isNotEmpty) ...[
+            // 섹션 헤더 (전체 탭에서만)
+            if (showSections)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: monthlyCourts.isNotEmpty ? 24 : 16,
+                    bottom: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '🔄',
+                        style: TextStyle(fontSize: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '매일 롤링 예약',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${rollingCourts.length}개',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: CupertinoColors.systemGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (BuildContext context, int index) {
+                  final court = rollingCourts[index];
+                  final todayTargetDate = court.getTodayReservationTargetDate();
+                  final nextOpenTime = court.getNextReservationDate();
+
+                  return RollingReservationCard(
+                    location: court.name,
+                    todayTargetDate: todayTargetDate,
+                    nextOpenTime: nextOpenTime,
+                    bookingUrl: court.bookingUrl,
+                    isFavorite: favoriteProvider.isFavorite(court.name),
+                    onLaunchURL: _launchURL,
+                    onToggleFavorite: () {
+                      favoriteProvider.toggleFavorite(court.name);
+                    },
+                  );
+                },
+                childCount: rollingCourts.length,
+              ),
+            ),
+          ],
         ],
       ),
     );
