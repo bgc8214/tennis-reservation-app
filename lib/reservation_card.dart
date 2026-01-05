@@ -1,10 +1,13 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'models/tennis_court.dart';
 import 'providers/alarm_provider.dart';
 import 'providers/court_provider.dart';
 import 'widgets/custom_alarm_settings_dialog.dart';
+import 'theme/court_colors.dart';
+import 'theme/court_typography.dart';
 
 class ReservationCard extends StatefulWidget {
   final String location;
@@ -108,13 +111,7 @@ class _ReservationCardState extends State<ReservationCard>
   }
 
   Color _getColorForRemainingDays(int days) {
-    if (days <= 1) {
-      return CupertinoColors.destructiveRed;
-    } else if (days <= 7) {
-      return CupertinoColors.systemYellow;
-    } else {
-      return CupertinoColors.activeGreen;
-    }
+    return CourtColors.getColorForDays(days);
   }
 
   int _calculateRemainingDays(DateTime reservationDate) {
@@ -172,33 +169,52 @@ class _ReservationCardState extends State<ReservationCard>
   Widget _buildCard(BuildContext context, int remainingDays, bool isDark,
       dynamic alarmSetting) {
     final alarmProvider = context.watch<AlarmProvider>();
+    final isUrgent = remainingDays <= 1;
+    final isWarning = remainingDays <= 7 && remainingDays > 1;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark
-            ? CupertinoColors.darkBackgroundGray
-            : CupertinoColors.systemBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: isDark
-            ? Border.all(
-                color: CupertinoColors.systemGrey4.darkColor, width: 0.5)
+        gradient: isUrgent
+            ? CourtColors.urgentGradient
             : null,
+        color: isUrgent
+            ? null
+            : isDark
+                ? CourtColors.darkBgSecondary
+                : CourtColors.lightBgSecondary,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isUrgent
+              ? CourtColors.urgentLight
+              : isWarning
+                  ? CourtColors.ballYellow.withOpacity(0.4)
+                  : isDark
+                      ? CourtColors.hardCourtLight.withOpacity(0.3)
+                      : CourtColors.courtLineGrey,
+          width: isUrgent || isWarning ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? CupertinoColors.black.withOpacity(0.3)
-                : CupertinoColors.systemGrey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: isUrgent
+                ? CourtColors.urgent.withOpacity(0.4)
+                : isWarning
+                    ? CourtColors.ballYellow.withOpacity(0.2)
+                    : isDark
+                        ? CourtColors.darkBg.withOpacity(0.4)
+                        : CourtColors.textGrey.withOpacity(0.08),
+            blurRadius: isUrgent ? 20 : 12,
+            offset: const Offset(0, 4),
+            spreadRadius: isUrgent ? 2 : 0,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -213,23 +229,38 @@ class _ReservationCardState extends State<ReservationCard>
                                 HapticFeedback.mediumImpact();
                                 widget.onToggleFavorite();
                               },
-                              child: Icon(
-                                widget.isFavorite
-                                    ? CupertinoIcons.star_fill
-                                    : CupertinoIcons.star,
-                                color: widget.isFavorite
-                                    ? CupertinoColors.systemYellow
-                                    : CupertinoColors.systemGrey,
-                                size: 24,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: widget.isFavorite
+                                      ? CourtColors.ballYellow
+                                      : CourtColors.textGrey.withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    widget.isFavorite
+                                        ? CupertinoIcons.star_fill
+                                        : CupertinoIcons.star,
+                                    color: widget.isFavorite
+                                        ? CourtColors.hardCourt
+                                        : CourtColors.textGrey,
+                                    size: 20,
+                                  ),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Flexible(
                               child: Text(
                                 widget.location,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
+                                style: CourtTypography.headline2.copyWith(
+                                  color: isUrgent
+                                      ? CourtColors.textLight
+                                      : isDark
+                                          ? CourtColors.textLight
+                                          : CourtColors.textDark,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -242,24 +273,27 @@ class _ReservationCardState extends State<ReservationCard>
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
+                              horizontal: 14,
+                              vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: _getColorForRemainingDays(remainingDays)
-                                  .withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              color: isUrgent
+                                  ? CourtColors.textLight.withOpacity(0.25)
+                                  : _getColorForRemainingDays(remainingDays),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               'D-$remainingDays',
-                              style: TextStyle(
-                                color:
-                                    _getColorForRemainingDays(remainingDays),
-                                fontWeight: FontWeight.w600,
+                              style: CourtTypography.label1.copyWith(
+                                color: isUrgent
+                                    ? CourtColors.textLight
+                                    : CourtColors.textLight,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           GestureDetector(
                             onTap: () async {
                               HapticFeedback.lightImpact();
@@ -309,94 +343,116 @@ class _ReservationCardState extends State<ReservationCard>
                                 }
                               }
                             },
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Text(
-                                  alarmSetting.hasAnyAlarm ? '🔔' : '🔕',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    color: alarmSetting.hasAnyAlarm
-                                        ? CupertinoColors.activeGreen
-                                        : CupertinoColors.systemGrey,
-                                  ),
-                                ),
-                                if (alarmSetting.hasAnyAlarm)
-                                  Positioned(
-                                    right: -6,
-                                    top: -4,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: CupertinoColors.destructiveRed,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 18,
-                                        minHeight: 18,
-                                      ),
-                                      child: Text(
-                                        _getAlarmCount(alarmSetting)
-                                            .toString(),
-                                        style: const TextStyle(
-                                          color: CupertinoColors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: alarmSetting.hasAnyAlarm
+                                    ? CourtColors.grass
+                                    : CourtColors.textGrey.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Center(
+                                    child: Icon(
+                                      alarmSetting.hasAnyAlarm
+                                          ? CupertinoIcons.bell_fill
+                                          : CupertinoIcons.bell_slash,
+                                      size: 22,
+                                      color: alarmSetting.hasAnyAlarm
+                                          ? CourtColors.textLight
+                                          : CourtColors.textGrey,
                                     ),
                                   ),
-                              ],
+                                  if (alarmSetting.hasAnyAlarm)
+                                    Positioned(
+                                      right: 0,
+                                      top: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(5),
+                                        decoration: const BoxDecoration(
+                                          color: CourtColors.urgent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 20,
+                                          minHeight: 20,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            _getAlarmCount(alarmSetting)
+                                                .toString(),
+                                            style: CourtTypography.caption.copyWith(
+                                              color: CourtColors.textLight,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 11,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
+                      Icon(
+                        CupertinoIcons.calendar,
+                        size: 18,
+                        color: isUrgent
+                            ? CourtColors.textLight.withOpacity(0.8)
+                            : CourtColors.textGrey,
+                      ),
+                      const SizedBox(width: 6),
                       Text(
                         _formatDate(widget.reservationTime),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                        style: CourtTypography.headline3.copyWith(
+                          color: isUrgent
+                              ? CourtColors.textLight
+                              : isDark
+                                  ? CourtColors.textLight
+                                  : CourtColors.textDark,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 10,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: widget.openingType == OpeningType.weekly
-                              ? CupertinoColors.systemPurple.withOpacity(0.1)
-                              : CupertinoColors.systemBlue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
+                              ? CourtColors.clay
+                              : CourtColors.grass,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (widget.openingType == OpeningType.weekly)
-                              const Padding(
-                                padding: EdgeInsets.only(right: 4),
-                                child: Text(
-                                  '🔄',
-                                  style: TextStyle(fontSize: 11),
-                                ),
-                              ),
+                            Icon(
+                              widget.openingType == OpeningType.weekly
+                                  ? CupertinoIcons.arrow_2_circlepath
+                                  : CupertinoIcons.calendar_badge_plus,
+                              size: 14,
+                              color: CourtColors.textLight,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
                               widget.openingType == OpeningType.weekly
                                   ? '매일 오픈'
                                   : '예약일',
-                              style: TextStyle(
-                                color: widget.openingType == OpeningType.weekly
-                                    ? CupertinoColors.systemPurple
-                                    : CupertinoColors.systemBlue,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                              style: CourtTypography.label2.copyWith(
+                                color: CourtColors.textLight,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
@@ -404,26 +460,31 @@ class _ReservationCardState extends State<ReservationCard>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _formatOpenTime(widget.reservationTime),
-                    style: const TextStyle(
-                      color: CupertinoColors.systemGrey,
-                      fontSize: 14,
-                    ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.clock,
+                        size: 16,
+                        color: isUrgent
+                            ? CourtColors.textLight.withOpacity(0.7)
+                            : CourtColors.textGrey,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _formatOpenTime(widget.reservationTime),
+                        style: CourtTypography.body2.copyWith(
+                          color: isUrgent
+                              ? CourtColors.textLight.withOpacity(0.9)
+                              : CourtColors.textGrey,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '남은 시간: ${_formatDuration(widget.remainingTime)}',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? CupertinoColors.white
-                          : CupertinoColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
+                  // Scoreboard-style timer
+                  _buildScoreboardTimer(isDark, isUrgent),
+                  const SizedBox(height: 50),
                 ],
               ),
             ),
@@ -433,25 +494,63 @@ class _ReservationCardState extends State<ReservationCard>
               right: 0,
               child: CupertinoButton(
                 padding: const EdgeInsets.all(0),
-                onPressed: () => widget.onLaunchURL(widget.bookingUrl),
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  widget.onLaunchURL(widget.bookingUrl);
+                },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: const BoxDecoration(
-                    color: CupertinoColors.activeGreen,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: isUrgent
+                        ? LinearGradient(
+                            colors: [
+                              CourtColors.textLight.withOpacity(0.3),
+                              CourtColors.textLight.withOpacity(0.2),
+                            ],
+                          )
+                        : CourtColors.grassGradient,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
                     ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '예약하기',
-                      style: TextStyle(
-                        color: CupertinoColors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isUrgent
+                            ? CourtColors.textLight.withOpacity(0.2)
+                            : CourtColors.grass.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        CupertinoIcons.sportscourt,
+                        color: isUrgent
+                            ? CourtColors.textLight
+                            : CourtColors.textLight,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '예약하기',
+                        style: CourtTypography.button1.copyWith(
+                          color: isUrgent
+                              ? CourtColors.textLight
+                              : CourtColors.textLight,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        CupertinoIcons.arrow_right_circle_fill,
+                        color: isUrgent
+                            ? CourtColors.textLight
+                            : CourtColors.textLight,
+                        size: 18,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -461,4 +560,231 @@ class _ReservationCardState extends State<ReservationCard>
       ),
     );
   }
+
+  Widget _buildScoreboardTimer(bool isDark, bool isUrgent) {
+    final days = widget.remainingTime.inDays;
+    final hours = widget.remainingTime.inHours % 24;
+    final minutes = widget.remainingTime.inMinutes % 60;
+    final seconds = widget.remainingTime.inSeconds % 60;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isUrgent
+            ? CourtColors.urgent.withOpacity(0.1)
+            : isDark
+                ? CourtColors.darkBgTertiary
+                : CourtColors.lightBgTertiary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isUrgent
+              ? CourtColors.urgent
+              : CourtColors.grass.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            CupertinoIcons.timer,
+            size: 20,
+            color: isUrgent
+                ? CourtColors.textLight
+                : CourtColors.grass,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _formatTimeRemaining(days, hours, minutes, seconds),
+            style: CourtTypography.headline2.copyWith(
+              color: isUrgent
+                  ? CourtColors.textLight
+                  : isDark
+                      ? CourtColors.textLight
+                      : CourtColors.textDark,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimeRemaining(int days, int hours, int minutes, int seconds) {
+    if (days > 0) {
+      return '$days일 ${hours}시간 ${minutes}분 ${seconds}초';
+    } else if (hours > 0) {
+      return '$hours시간 ${minutes}분 ${seconds}초';
+    } else if (minutes > 0) {
+      return '${minutes}분 ${seconds}초';
+    } else {
+      return '${seconds}초';
+    }
+  }
+
+  Widget _buildSimpleTimeUnit({
+    required int value,
+    required String label,
+    required Color color,
+    required bool isDark,
+    required bool isUrgent,
+  }) {
+    return Column(
+      children: [
+        Text(
+          value.toString().padLeft(2, '0'),
+          style: CourtTypography.timer1.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontSize: 48,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: CourtTypography.label2.copyWith(
+            color: isUrgent
+                ? CourtColors.urgent.withOpacity(0.8)
+                : isDark
+                    ? CourtColors.textLight.withOpacity(0.7)
+                    : CourtColors.textGrey,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeUnit({
+    required int value,
+    required String label,
+    required Color color,
+    required bool isDark,
+    required bool isUrgent,
+    bool isSmall = false,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmall ? 8 : 12,
+            vertical: isSmall ? 8 : 12,
+          ),
+          decoration: BoxDecoration(
+            gradient: isUrgent
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      CourtColors.textLight.withOpacity(0.2),
+                      CourtColors.textLight.withOpacity(0.1),
+                    ],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color.withOpacity(0.2),
+                      color.withOpacity(0.1),
+                    ],
+                  ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isUrgent
+                  ? CourtColors.textLight.withOpacity(0.4)
+                  : color.withOpacity(0.5),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isUrgent
+                    ? CourtColors.textLight.withOpacity(0.1)
+                    : color.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            value.toString().padLeft(2, '0'),
+            style: (isSmall ? CourtTypography.timer3 : CourtTypography.timer2)
+                .copyWith(
+              color: isUrgent ? CourtColors.textLight : color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: CourtTypography.caption.copyWith(
+            color: isUrgent
+                ? CourtColors.textLight.withOpacity(0.7)
+                : CourtColors.textGrey,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Custom painter for tennis court line pattern
+class CourtLinePainter extends CustomPainter {
+  final bool isDark;
+
+  CourtLinePainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isDark
+          ? CourtColors.courtLine.withOpacity(0.03)
+          : CourtColors.textDark.withOpacity(0.03)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    // Draw court lines pattern
+    // Horizontal lines
+    canvas.drawLine(
+      Offset(0, size.height * 0.3),
+      Offset(size.width, size.height * 0.3),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height * 0.7),
+      Offset(size.width, size.height * 0.7),
+      paint,
+    );
+
+    // Vertical center line
+    canvas.drawLine(
+      Offset(size.width / 2, 0),
+      Offset(size.width / 2, size.height),
+      paint,
+    );
+
+    // Diagonal lines for decorative effect
+    final dashedPaint = Paint()
+      ..color = isDark
+          ? CourtColors.ballYellow.withOpacity(0.02)
+          : CourtColors.grass.withOpacity(0.02)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(
+      const Offset(0, 0),
+      Offset(size.width * 0.3, size.height),
+      dashedPaint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.7, 0),
+      Offset(size.width, size.height),
+      dashedPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

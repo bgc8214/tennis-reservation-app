@@ -278,7 +278,7 @@ class _RollingReservationCardState extends State<RollingReservationCard>
                   ),
                   const SizedBox(height: 16),
 
-                  // 롤링 예약 배지
+                  // 매일 오픈 배지
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -297,7 +297,7 @@ class _RollingReservationCardState extends State<RollingReservationCard>
                         ),
                         SizedBox(width: 6),
                         Text(
-                          '매일 롤링 예약',
+                          '매일 오픈',
                           style: TextStyle(
                             color: CupertinoColors.systemPurple,
                             fontSize: 14,
@@ -383,7 +383,7 @@ class _RollingReservationCardState extends State<RollingReservationCard>
                     const SizedBox(height: 12),
                   ],
 
-                  // 롤링 시스템 안내
+                  // 매일 오픈 시스템 안내
                   Text(
                     '매일 ${_formatTime(widget.nextOpenTime)}에 7일 후 코트 오픈',
                     style: const TextStyle(

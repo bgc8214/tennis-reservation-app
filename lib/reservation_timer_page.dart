@@ -18,6 +18,8 @@ import 'services/notice_service.dart';
 import 'widgets/notice_popup.dart';
 import 'screens/calendar_view_page.dart';
 import 'screens/settings_page.dart';
+import 'theme/court_colors.dart';
+import 'theme/court_typography.dart';
 
 class ReservationTimerPage extends StatefulWidget {
   const ReservationTimerPage({Key? key}) : super(key: key);
@@ -38,7 +40,7 @@ enum SortOption {
 enum CourtTypeTab {
   all('전체'),
   monthly('월간 오픈'),
-  rolling('롤링 예약');
+  rolling('매일 오픈');
 
   const CourtTypeTab(this.label);
   final String label;
@@ -238,10 +240,24 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
     // 검색어와 필터 적용
     var filteredCourts = courtProvider.visibleCourts.where((court) {
+      // 탭 필터 적용
+      switch (_selectedTab) {
+        case CourtTypeTab.all:
+          break; // 전체이므로 필터링 없음
+        case CourtTypeTab.monthly:
+          if (court.openingType != OpeningType.monthly) return false;
+          break;
+        case CourtTypeTab.rolling:
+          if (court.openingType != OpeningType.weekly) return false;
+          break;
+      }
+
+      // 검색어 필터
       if (_searchQuery.isNotEmpty &&
           !court.name.toLowerCase().contains(_searchQuery.toLowerCase())) {
         return false;
       }
+      // 즐겨찾기 필터
       if (_showOnlyFavorites && !favoriteProvider.isFavorite(court.name)) {
         return false;
       }
@@ -273,24 +289,40 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
               children: [
                 // 헤더
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        '코트알람',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          // App icon
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(
+                              'assets/icon.png',
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '코트알람',
+                            style: CourtTypography.display3.copyWith(
+                              color: CourtColors.grass,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                       Row(
                         children: [
                           // 캘린더 버튼
                           CupertinoButton(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(10),
                             minSize: 0,
                             onPressed: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
@@ -298,16 +330,29 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                                 ),
                               );
                             },
-                            child: const Icon(
-                              CupertinoIcons.calendar,
-                              size: 28,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: CourtColors.grass.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: CourtColors.grass.withOpacity(0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: const Icon(
+                                CupertinoIcons.calendar,
+                                size: 22,
+                                color: CourtColors.grass,
+                              ),
                             ),
                           ),
                           // 설정 버튼
                           CupertinoButton(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(10),
                             minSize: 0,
                             onPressed: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
@@ -315,9 +360,21 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                                 ),
                               );
                             },
-                            child: const Icon(
-                              CupertinoIcons.settings,
-                              size: 28,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: CourtColors.clay.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: CourtColors.clay.withOpacity(0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: const Icon(
+                                CupertinoIcons.settings,
+                                size: 22,
+                                color: CourtColors.clay,
+                              ),
                             ),
                           ),
                         ],
@@ -325,50 +382,143 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                     ],
                   ),
                 ),
-                // 검색바 및 필터
+                // 검색바 및 필터 - 간소화
                 Container(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: Column(
                     children: [
-                      CupertinoSearchTextField(
-                        placeholder: '테니스장 검색',
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
-                        },
+                      // 검색바와 필터를 한 줄로
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 44,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: CourtColors.textGrey.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.search,
+                                    size: 18,
+                                    color: CourtColors.textGrey,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: CupertinoTextField(
+                                      placeholder: '검색',
+                                      placeholderStyle: TextStyle(
+                                        color: CourtColors.textGrey,
+                                        fontSize: 15,
+                                      ),
+                                      decoration: null,
+                                      style: const TextStyle(fontSize: 15),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _searchQuery = value;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // 즐겨찾기 필터
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setState(() {
+                                _showOnlyFavorites = !_showOnlyFavorites;
+                              });
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: _showOnlyFavorites
+                                    ? CourtColors.ballYellow
+                                    : CourtColors.textGrey.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  CupertinoIcons.star_fill,
+                                  size: 20,
+                                  color: _showOnlyFavorites
+                                      ? CourtColors.hardCourt
+                                      : CourtColors.textGrey,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      // 탭 UI
+                      const SizedBox(height: 10),
+                      // 탭 UI - 간소화
                       Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
-                          color: CupertinoColors.systemGrey6,
-                          borderRadius: BorderRadius.circular(10),
+                          gradient: LinearGradient(
+                            colors: [
+                              CourtColors.hardCourt.withOpacity(0.1),
+                              CourtColors.hardCourt.withOpacity(0.05),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: CourtColors.ballYellow.withOpacity(0.2),
+                            width: 1.5,
+                          ),
                         ),
                         child: Row(
                           children: CourtTypeTab.values.map((tab) {
                             final isSelected = _selectedTab == tab;
+                            final tabColor = tab == CourtTypeTab.all
+                                ? CourtColors.grass
+                                : tab == CourtTypeTab.monthly
+                                    ? CourtColors.clay
+                                    : CourtColors.ballYellow;
+
                             return Expanded(
                               child: GestureDetector(
                                 onTap: () {
+                                  HapticFeedback.lightImpact();
                                   setState(() {
                                     _selectedTab = tab;
                                   });
                                 },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOut,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
                                   decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? CupertinoColors.white
+                                    gradient: isSelected
+                                        ? LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              tabColor.withOpacity(0.2),
+                                              tabColor.withOpacity(0.1),
+                                            ],
+                                          )
                                         : null,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: tabColor.withOpacity(0.5),
+                                            width: 2,
+                                          )
+                                        : null,
                                     boxShadow: isSelected
                                         ? [
-                                            const BoxShadow(
-                                              color: Color.fromRGBO(0, 0, 0, 0.1),
-                                              blurRadius: 4,
-                                              offset: Offset(0, 2),
+                                            BoxShadow(
+                                              color: tabColor.withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
                                             ),
                                           ]
                                         : null,
@@ -376,14 +526,16 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                                   child: Text(
                                     tab.label,
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
+                                    style: CourtTypography.label1.copyWith(
                                       color: isSelected
-                                          ? CupertinoColors.activeBlue
-                                          : CupertinoColors.systemGrey,
+                                          ? (tab == CourtTypeTab.rolling
+                                              ? CourtColors.hardCourt
+                                              : tabColor)
+                                          : CourtColors.textGrey,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ),
@@ -393,49 +545,13 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      // 정렬과 개수만 표시
                       Row(
                         children: [
-                          CupertinoButton(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            color: _showOnlyFavorites
-                                ? CupertinoColors.activeBlue
-                                : CupertinoColors.systemGrey5,
-                            minSize: 0,
-                            onPressed: () {
-                              setState(() {
-                                _showOnlyFavorites = !_showOnlyFavorites;
-                              });
-                            },
-                            child: Row(
-                              children: [
-                                Icon(
-                                  CupertinoIcons.star_fill,
-                                  size: 16,
-                                  color: _showOnlyFavorites
-                                      ? CupertinoColors.white
-                                      : CupertinoColors.systemGrey,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '즐겨찾기만',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: _showOnlyFavorites
-                                        ? CupertinoColors.white
-                                        : CupertinoColors.systemGrey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           // 정렬 버튼
-                          CupertinoButton(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            color: CupertinoColors.systemGrey5,
-                            minSize: 0,
-                            onPressed: () {
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
                               showCupertinoModalPopup(
                                 context: context,
                                 builder: (context) => CupertinoActionSheet(
@@ -479,31 +595,31 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                                 Icon(
                                   _sortOption.icon,
                                   size: 16,
-                                  color: CupertinoColors.systemGrey,
+                                  color: CourtColors.textGrey,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   _sortOption.label,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: CupertinoColors.systemGrey,
+                                  style: CourtTypography.caption.copyWith(
+                                    color: CourtColors.textGrey,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
+                                const SizedBox(width: 2),
+                                Icon(
                                   CupertinoIcons.chevron_down,
-                                  size: 14,
-                                  color: CupertinoColors.systemGrey,
+                                  size: 12,
+                                  color: CourtColors.textGrey,
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const Spacer(),
                           Text(
                             '${filteredCourts.length}개',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: CupertinoColors.systemGrey,
+                            style: CourtTypography.caption.copyWith(
+                              color: CourtColors.grass,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -511,64 +627,33 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                     ],
                   ),
                 ),
+                // 코트 리스트
                 Expanded(
-                  child: courtProvider.isLoading
-                      ? const Center(
-                          child: CupertinoActivityIndicator(radius: 20.0),
-                        )
-                      : courtProvider.error != null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    CupertinoIcons.exclamationmark_triangle,
-                                    size: 64,
-                                    color: CupertinoColors.systemGrey,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    '데이터를 불러올 수 없습니다',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    courtProvider.error!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: CupertinoColors.systemGrey,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 24),
-                                  CupertinoButton.filled(
-                                    onPressed: () async {
-                                      await courtProvider.fetchCourts();
-                                    },
-                                    child: const Text('다시 시도'),
-                                  ),
-                                ],
+                  child: filteredCourts.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                CupertinoIcons.search,
+                                size: 64,
+                                color: CourtColors.textGrey.withOpacity(0.5),
                               ),
-                            )
-                          : filteredCourts.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    '검색 결과가 없습니다',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: CupertinoColors.systemGrey,
-                                    ),
-                                  ),
-                                )
-                          : _buildCourtsList(
-                              filteredCourts,
-                              courtProvider,
-                              favoriteProvider,
-                              now,
-                            ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '검색 결과가 없습니다',
+                                style: CourtTypography.body1.copyWith(
+                                  color: CourtColors.textGrey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _buildCourtsList(
+                          filteredCourts,
+                          favoriteProvider,
+                          now,
+                        ),
                 ),
                 if (_isBannerAdReady)
                   SizedBox(
@@ -586,11 +671,58 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
 
   Widget _buildCourtsList(
     List<TennisCourt> courts,
+    FavoriteProvider favoriteProvider,
+    DateTime now,
+  ) {
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: courts.length,
+      itemBuilder: (context, index) {
+        final court = courts[index];
+        final isFavorite = favoriteProvider.isFavorite(court.name);
+
+        if (court.openingType == OpeningType.weekly) {
+          return RollingReservationCard(
+            location: court.name,
+            todayTargetDate: court.getTodayReservationTargetDate(),
+            nextOpenTime: court.getNextReservationDate(),
+            bookingUrl: court.bookingUrl,
+            isFavorite: isFavorite,
+            onLaunchURL: _launchURL,
+            onToggleFavorite: () {
+              favoriteProvider.toggleFavorite(court.name);
+            },
+          );
+        } else {
+          final nextReservation = court.getNextReservationDate();
+          final remaining = nextReservation.difference(now);
+
+          return ReservationCard(
+            location: court.name,
+            reservationTime: nextReservation,
+            remainingTime: remaining,
+            bookingUrl: court.bookingUrl,
+            alarmSettings: {},
+            isFavorite: isFavorite,
+            onAlarmSettingsChanged: (oneDayBefore, oneHourBefore) {},
+            onLaunchURL: _launchURL,
+            onToggleFavorite: () {
+              favoriteProvider.toggleFavorite(court.name);
+            },
+            openingType: court.openingType,
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildOriginalCourtsList(
+    List<TennisCourt> courts,
     CourtProvider courtProvider,
     FavoriteProvider favoriteProvider,
     DateTime now,
   ) {
-    // 월간 오픈과 롤링 예약 분리
+    // 월간 오픈과 매일 오픈 분리
     final monthlyCourts =
         courts.where((c) => c.openingType == OpeningType.monthly).toList();
     final rollingCourts =
@@ -681,7 +813,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
               ),
             ),
           ],
-          // 롤링 예약 섹션
+          // 매일 오픈 섹션
           if ((_selectedTab == CourtTypeTab.all || _selectedTab == CourtTypeTab.rolling) && rollingCourts.isNotEmpty) ...[
             // 섹션 헤더 (전체 탭에서만)
             if (showSections)
@@ -701,7 +833,7 @@ class _ReservationTimerPageState extends State<ReservationTimerPage> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        '매일 롤링 예약',
+                        '매일 오픈',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,

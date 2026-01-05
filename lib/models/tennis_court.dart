@@ -48,7 +48,7 @@ class TennisCourt {
     final now = DateTime.now();
 
     if (openingType == OpeningType.weekly) {
-      // 롤링 예약: 다음 오픈 시간 (오늘 or 내일 00:00)
+      // 매일 오픈: 다음 오픈 시간 (오늘 or 내일)
       final todayOpen = DateTime(now.year, now.month, now.day, hour, minute);
       if (now.isBefore(todayOpen)) {
         return todayOpen; // 오늘 아직 오픈 전
@@ -65,7 +65,7 @@ class TennisCourt {
     }
   }
 
-  // 롤링 예약 전용: 오늘 예약 가능한 날짜 (7일 후)
+  // 매일 오픈 전용: 오늘 예약 가능한 날짜 (7일 후)
   DateTime getTodayReservationTargetDate() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day).add(const Duration(days: 7));
